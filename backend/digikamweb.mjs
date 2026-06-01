@@ -25,7 +25,7 @@ import {createConnection } from 'mariadb';
 
 import { ZipWriter, BlobWriter, TextReader, Uint8ArrayReader} from "@zip.js/zip.js";
 
-import { pgf2jpg } from '../addons/pfg2jpg/src/node/pgf2jpg.mjs';
+import { pgf2jpg } from '../addons/pgf2jpg/src/node/pgf2jpg.mjs';
 
 
 	

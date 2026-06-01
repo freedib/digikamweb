@@ -36,8 +36,8 @@ importers:
         specifier: ^12.3.0
         version: 12.3.0
       pgf2jpg:
-        specifier: link:../addons/pfg2jpg
-        version: link:../addons/pfg2jpg
+        specifier: link:../addons/pgf2jpg
+        version: link:../addons/pgf2jpg
       pnpm:
         specifier: ^11.1.1
         version: 11.1.2

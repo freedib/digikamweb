@@ -19,10 +19,12 @@ In summary:
 
 # Install
 
-Install with `pnpm`:
+First you must build the addon [pgf2jpg](./addons/pgf2jpg/README.md)
+
+Then install node dependencies with `pnpm`:
 
 ``` bash
-$ cd ${sourcedir}/backend
+$ cd ${digikamweb_sourcedir}/backend
 $ pnpm install
 ```
 

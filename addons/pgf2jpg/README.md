@@ -15,19 +15,21 @@ The original library [libPGF](https://libpgf.org/) was written for Windows.
 ## Build node addon
 
 ``` bash
-$ cd ${sourcedir}/addon/pgf2jpg
+$ cd ${digikamweb_sourcedir}/addons/pgf2jpg
 $ npx cmake-js compile
 ```
 
-The backend will search the addon under ```${sourcedir}/addon/pgf2jpg/build/Release ```
+The backend will search the addon under ```${digikamweb_sourcedir}/addons/pgf2jpg/build/Release ```
 
 ## Build cli module
 
 May be useful to extract manually PGF files.
 
 ``` bash
-$ cd ${sourcedir}/addon/pgf2jpg/build-cli
-$ cmake -DCLI=ON -DCMAKE_BUILD_TYPE=Debug ..
+$ cd ${digikamweb_sourcedir}/addons/pgf2jpg
+$ mkdir -p build-cli							# first time
+$ cd build-cli
+$ cmake -DCLI=ON -DCMAKE_BUILD_TYPE=Debug ..		# first time
 $ make
 
 ```
