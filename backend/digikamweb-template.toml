@@ -4,25 +4,26 @@ language		= "en"				# server language
 languages		= ["fr","en"]
 
 [database]
-#type			= "sqlite3"			# for SQLite
-type			= "mariadb"			# for MySQL internal/server
+#type			= "sqlite3"			# uncomment for SQLite
+type			= "mariadb"			# uncomment for MySQL internal/server
 paths_prefix	= "/home"			# prefix to add to digiKam's AlbumRoot.specificPath to get the real photos folder path
 
 [database.sqlite3]
 directory		= "/PATH_TO_SQLITE3_DATABASE"	# directory with .db files
+									# when SQLite
 
 [database.mariadb]
-connection		= "socket"			# choose MySQL internal
-#connection		= "host"			# choose MySQL server
+connection		= "socket"			# uncomment for MySQL internal
+#connection		= "host"			# uncomment for MySQL server
 socket          = "/PATH_TO_MARIADB_SOCKET_FILE"	# (mysql.socket)
-									# for MySQL internal. can be found with ps -ef | grep digikam
-host			= "localhost"		# for MySQL server
-user			= "digikam"			# for MySQL server
-password		= ""				# for MySQL server
+									# when MySQL internal. can be found with ps -ef | grep digikam
+host			= "localhost"		# when MySQL server
+user			= "digikam"			# when MySQL server
+password		= ""				# when MySQL server
 
 [http]
 root_dir		= "../frontend"		# HTML root. may be an absolute path
-port			= 4000
+port			= 4000				# choose prefered port
 
 use_blobs		= true				# use blobs to send binary images date. if false, use base64 encoding (larger)
 use_urls		= true				# if true, send url of photos instead of sending their image data
