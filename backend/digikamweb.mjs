@@ -17,6 +17,8 @@ import express        from 'express';
 import expresssession from 'express-session';
 import body_parser    from 'body-parser';
 
+import crypto from 'node:crypto';
+
 import http  from 'http';
 import https from 'https';
 
@@ -32,17 +34,22 @@ import { pgf2jpg } from '../addons/pgf2jpg/src/node/pgf2jpg.mjs';
 /////////////////////////////////
 
 
-var verbose  = false
+let verbose = false;
+let verboseW = false;
 
 
 for (var iarg = 2; iarg < process.argv.length; iarg++) {
 	if (process.argv[iarg] === '-v') {
 		verbose = true;
 	}
+	else if (process.argv[iarg] === '-w') {
+		verboseW = true;
+	}
 	else {
 		console.log('DIGIKAM-WEB ' + version);
 		console.log('Options:');
 		console.log('    -v      : verbose');
+		console.log('    -w      : verbose development');
 		process.exit();
 	}
 }
@@ -87,8 +94,8 @@ const app = express();
 var httpserver, updateserver;
 
 if (config.http.force_ssl) {
-	var privateKey = fs.readFileSync(path.join(config.http.ssl_directory,'ido.key'), 'utf8');
-	var certificate = fs.readFileSync(path.join(config.http.ssl_directory,'ido.crt'), 'utf8');
+	var privateKey = fs.readFileSync(path.join(config.http.ssl_directory,'digikamweb.key'), 'utf8');
+	var certificate = fs.readFileSync(path.join(config.http.ssl_directory,'digikamweb.crt'), 'utf8');
 	var credentials = { key: privateKey, cert: certificate };
 	httpserver = https.createServer(credentials, app);
 }
@@ -99,35 +106,38 @@ else {
 
 // sessions
 
-app.use(expresssession({ secret: 'digikam#2026@session',
-	resave: false, saveUninitialized: false }));
+app.use(expresssession({
+	secret: 'digikam#2026@session',
+	resave: false,
+	saveUninitialized: false,
+	cookie: {
+		secure: false,
+		httpOnly: true,
+		maxAge: 1000 * 60 * 60 * 24
+	}
+}));
 app.use(body_parser.json());
 app.use(body_parser.urlencoded({ extended: true }));
 
-var session;
-var sequence = 0;			// session sequence
 
-app.use(function(req, res, next) {
-	res.seq = sequence++;
-	next();
-});
+var sessions={};
+
 
 // check if request is valid
 const validate_role = (req, res, next) => {
 	let params='';
 	Object.entries(req.query).forEach(([key, value]) => params+=key+':'+value);
 	printlog ('<-- '+req.method+' '+req.path+' {'+params+'}');
-	let state = res.req.session && res.req.session.state;
-	if (req.method=='GET' && (req.url=='/' ||
+	if (req.method=='GET' && (req.url=='/' ||			// static routing
 		req.url.startsWith('/js/') || req.url.startsWith('/css/') ||
 		req.url.startsWith('/images/') || req.url.startsWith('/download/') ||
 		req.url=='/favicon.ico' || req.url=='/index-n.html' ))
 		next();
 	else if (req.method=='POST' && (req.url=='/login'||req.url=='/logout'))
 		next();
-	else if (state && state=='loggedIn')
+	else if (sessions[req.sessionID])		// check if seesion have been created
 		next();
-  	else
+	else
 		respond_http_error (res, 401);
 };
 
@@ -138,7 +148,8 @@ app.use (validate_role);
 
 var http_codes = {
 	401: 'Unauthorized',
-	404: 'NotFound',
+	403: 'Forbidden',
+	407: 'NotFound',
 	500: 'InternalServerError',
 	501: 'NotImplemented',
 }
@@ -158,6 +169,12 @@ function m (res,messageid) {
 
 function printlog (...message) {
 	if (verbose)
+	//	console.log (new Date().toISOString()+': '+message);
+		console.log (...message);
+}
+
+function printwlog (...message) {
+	if (verboseW)
 	//	console.log (new Date().toISOString()+': '+message);
 		console.log (...message);
 }
@@ -182,7 +199,7 @@ app.use('/', express.static(root_dir));
 /////// dynamic routing ///////
 
 app.post('/login', function(req, res) {
-	session = req.session;
+	let session = req.session;
 	session.username = req.body.username;
 	session.role = '';
 	session.lang = 'fr';
@@ -206,29 +223,47 @@ app.post('/login', function(req, res) {
 		}
 	}
 
+	printwlog ('??? login:  sessionID='+session.req.sessionID);
 	if (allow_login) {
+		if (false)			// future...
+			session.key = crypto.randomBytes(32).toString('base64');
+		else
+			session.key = session.req.sessionID;
 		session.role = config.users[iuser].role;
 		session.lang = config.users[iuser].language;
 		session.state = 'loggedIn';
+
 		respond_json(res, {type:'table/login', rows:[{state:session.state, username:session.username, role:session.role,
 						   lang:session.lang, languages:config.server.languages, translations:i18n[session.lang]}]});
-		printlog(session.state + ': user='+session.username + ', role='+session.role);
+		// add session to server sessions list
+		sessions[session.key] = {state: session.state, user:config.users[iuser]};
+		printwlog ('??? login:  sessions('+Object.keys(sessions).length+'): +++', session.key);
+		printlog('!!! session:  '+session.state + ': ' + session.username);
+		update_restricted_albums (session.key);
 	}
 	else {
-		session.state = 'invalid user/password';
-		respond_json(res, { type:'error', rows:[{message:m(res,http_codes[401])}]});
+		session.state = 'loggedOut';
+		respond_json(res, { type:'error', rows:[{message:m(res,http_codes[403])}]});	// http code 200 but app error
 	}
 });
 
 app.post('/logout', function(req, res) {
-	session = req.session;
-	session.username = req.body.username;
-	session.state = 'loggedOut';
-	respond_json(res, {type:'table/logout', rows:[{state: session.state}]});
-	printlog(session.state + ': ' + session.username);
+	let session = req.session;
+	printwlog ('??? logout: sessions('+Object.keys(sessions).length+'): --- '+ req.session.key);
+
+	if (session.key && sessions[session.key])		// delete session from server sessions list
+		delete sessions[session.key];
+	
+	printwlog ('??? logout: sessions('+Object.keys(sessions).length+')');
+
 	req.session.destroy(function(err) {
-		if (err) {
+		if (err)
 			console.log(err);
+		else {
+			session.username = req.body.username;
+			session.state = 'loggedOut';
+			printlog('!!! session: '+session.state + ': ' + session.username);
+			respond_json(res, {type:'table/logout', rows:[{state: session.state}]});
 		}
 	});
 });
@@ -247,7 +282,7 @@ app.get('/albums{/:id}', function(req, res) {
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else
-		respond_json_query (res, get_sql('albums_list'), 'table/albums_list');
+		respond_json_query (res, get_sql('albums_list'), 'table/albums_list', filter_albums);
 });
 
 // return a list of tags
@@ -255,27 +290,42 @@ app.get('/tags{/:id}', function(req, res) {
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else
-		respond_json_query (res, get_sql('tags_list'), 'table/tags_list');
+		respond_json_query (res, get_sql('tags_list'), 'table/tags_list', filter_tags);
 });
 
 // else return thumbnails list corresponding to search parameters
  app.get('/search{/:id}', function(req, res) {
-	let where = replace_sql(create_search_where(req.query.albumsid, req.query.tagsid, req.query.datetimes));
-
 	let user_limit = req.query.limits==''? 100000: Number(req.query.limits);
 	let server_limit = Number(config.http.thumbnails_limit);
 	let best_limit = ''+ Math.min (server_limit, user_limit);
 	let limit = create_search_limit (best_limit);
+	let where, sql;
 	
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else if (req.query.tagsid.length > 0) {
-		printlog ('search_tags',where);
-		let sql = get_sql('search_tags', {where:where,limit:limit});
+		where = replace_sql(create_search_where(req.query.albumsid, req.query.tagsid, req.query.datetimes));
+	//	printlog ('??? search_tags',where);
+		sql = get_sql('search_tags', {where:where,limit:limit});
 		respond_json_query (res, sql, 'table/search_tags');
 	}
 	else {
-		printlog ('search_albums',where);
+		let user = sessions[req.session.key].user;
+			let albumsid;
+		if (req.query.albumsid=='' && user.albumsid)			// no selection. select all resricted albums
+			albumsid = user.albumsid.join(',');
+		else if (req.query.albumsid!='' && user.albumsid)	 {	// selection, filter only restricted albums
+			let reqid = req.query.albumsid.split(',');
+			albumsid = user.albumsid.filter(function(value, index, array) {
+				return reqid.indexOf(''+value) >= 0;
+			});
+			albumsid = albumsid.join(',');
+		}
+		else													// no selection, no restrict. no where
+			albumsid = req.query.albumsid;
+		
+		where = replace_sql(create_search_where(albumsid, req.query.tagsid, req.query.datetimes));
+		printlog ('??? search_albums',where);
 		respond_json_query (res, get_sql('search_albums',{where:where,limit:limit}), 'table/search_albums');
 	}
 });
@@ -339,12 +389,16 @@ function respond_json (res, content) {
 	}
 }
 
-function respond_json_query (res, sql, type) {
+function respond_json_query (res, sql, type, filter) {
 	db_query (db_digikam, sql)
 		.then ((rows) => {
+			if (filter)
+				rows = filter(res.req.session.key, rows);
 			respond_json (res, {type:type?type:'table', rows:rows});
 		})
 		.catch ((error) => {
+			if (verboseW)
+				throw(error);							// in development want full trace
 			respond_db_error (res, error);
 		});
 }
@@ -390,7 +444,7 @@ function respond_thumbnail_query (res, sql) {
 }
 
 
-// for tests. dump last pgf and converted jpg
+// used for tests. dump last pgf and converted jpg
 function dump_images (pgfdata, jpgdata) {
 	printlog ('pgfdata: '+pgfdata.length+', jpgdata: '+pgfdata.length);
 	fs.writeFile('/tmp/thumbnail.pgf', pgfdata, (err) => {
@@ -608,8 +662,10 @@ function db_query_mariadb (db, sql) {
 
 var sql_statements = {
 	roots_list:		'SELECT id, label, specificPath FROM ${AlbumRoots}',
-	albums_list:	'SELECT id, albumRoot, relativePath FROM ${Albums}',
-	tags_list:		'SELECT id, pid, name FROM ${Tags}',
+	albums_list:	'SELECT id, albumRoot, relativePath FROM ${Albums} ' +
+					'ORDER BY relativePath ASC ', 
+	tags_list:		'SELECT id, pid, name FROM ${Tags} ' +
+					'ORDER BY name ASC ',
 	thumbnail_data:	'SELECT ${Thumbnails}.id, ${Thumbnails}.modificationDate, ${Thumbnails}.orientationHint, ' +
 						   '${Thumbnails}.data FROM ${Thumbnails} ' +
 					'${where} ',
@@ -658,7 +714,7 @@ function create_search_limit (limits) {
 
 // create search WHERE clause based on albums id, tags id and datetimes
 function create_search_where (albums, tags, datetimes) {
-	let subwhere_albums = where_or('${Images}.album',   albums);
+	let subwhere_albums = where_or('${Images}.album', albums);
 	let subwhere_tags   = where_or('${ImageTags}.tagid', tags);
 	let subwhere_dates  = where_dates('${Images}.modificationDate', datetimes);
 
@@ -843,6 +899,52 @@ function read_albums () {
 }
 
 
+// get restricted albums id list for a user
+function update_restricted_albums (sessionkey) {
+	let user = sessions[sessionkey].user;
+
+	user.albumsid = null;
+
+	if (user.restrict_albums && user.restrict_albums.length>0) {
+		user.albumsid = [];
+		for (let ira=0; ira<user.restrict_albums.length; ira++) {
+			let ua = albums.find(ra => ra && ra.relativePath==user.restrict_albums[ira]);
+			user.albumsid.push(ua.id);
+		}
+	}
+}
+
+// if user.restrict_albums limit album list sent to browser 
+function filter_albums (sessionkey,	rows) {
+	let user = sessions[sessionkey].user;
+	
+	if (user.restrict_albums && user.restrict_albums.length>0) {
+		let user_rows = [];
+		for (let irow=0; irow<rows.length; irow++) {
+			if (user.restrict_albums.indexOf( rows[irow].relativePath ) >= 0)
+				user_rows.push(rows[irow]);
+		}
+		rows = user_rows;
+	}
+	return rows;
+}
+
+// if user.restrict_tags limit tags list sent to browser 
+function filter_tags (sessionkey, rows) {
+	let user = sessions[sessionkey].user;
+	
+	if (user.restrict_tags && user.restrict_tags.length>0) {
+		let user_rows = [];
+		for (let irow=0; irow<rows.length; irow++) {
+			if (user.restrict_tags.indexOf( rows[irow].name ) >= 0)
+				user_rows.push(rows[irow]);
+		}
+		rows = user_rows;
+	}
+	return rows;
+}
+
+
 
 
 /////// main ///////
@@ -853,8 +955,8 @@ function read_albums () {
 		.then((db) => {
 			db_digikam = db;
 			
-			read_albums();
-
+			read_albums();	// create symbolic links for albums
+			
 			httpserver.listen(config.http.port, function() {
 				console.log(m(null,'Server')+' @ http://localhost:' + config.http.port);
 			});

@@ -2,7 +2,7 @@
   "name": "digikam",
   "version": "1.0.0",
   "private": true,
-  "type":    "module",
+  "type": "module",
   "module": "./digikamweb.mjs",
   "scripts": {
     "start": "node digikamweb.mjs"

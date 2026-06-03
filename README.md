@@ -81,9 +81,12 @@ You can change server HTTP port.
 
 You can add/remove users and change their default laguange or password. Security is quite basic. For actual version, passwords are in clear in configuration file. It could be certainely improved if requested. 
 
-It is possible to disable "no password" for local access.
+It is possible to set local_trusted for local access.
 
-In theory, it is possible to use SSL, by I have not yet tested it.
+Users can be restricted on albums and tags if you want share limited photos.
+
+
+It is possible to use SSL by setting force_ssl to true. The provided key is self generated, so the browser will issue a warning at first use.
 
 # License
 

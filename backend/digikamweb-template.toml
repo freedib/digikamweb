@@ -34,25 +34,27 @@ images_root		= "/photos"			# if use_urls, a symbolic link will be made from firs
 
 thumbnails_limit = 2000				# maximum thumbnails to display, superceedes users limit
 
-force_ssl		= false	
-ssl_directory	= "."
+force_ssl		= false				# if true, use https
+ssl_directory	= "./ssl"
+
 
 local_trusted	= true				# login without password if source from localhost
 
-[[users]]
-user			= "admin"
-password		= "admin"
-role			= "admin"
+[[users]]							# special for login without user/password if local_trusted = true
+user			= "local"				
+password		= ""
 language		= "en"
 
-[[users]]
+
+[[users]]							# normal user from web with full access
 user			= "photo"
 password		= "photo"
 role			= "user"
-language		= "en"
+language		= "fr"
 
-[[users]]							# if local_trusted = true
-user			= "local"				
-password		= ""
-role			= "user"
+[[users]]							# user from web with limited access
+user			= "share"
+password		= "share"
 language		= "en"
+restrict_albums = ["album-1", "album-2"]	# allowed albums
+restrict_tags   = ["tags-1","tags-2"]		# allowed tags

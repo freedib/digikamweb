@@ -101,6 +101,10 @@ padding-top: 1rem;
 	margin-right: 0.4rem;
 }
 
+#message {
+	padding-top: 0.6rem;
+}
+
 /* header checkboxes */
 
 .header .base-checkbox {			/* label for checkbox */

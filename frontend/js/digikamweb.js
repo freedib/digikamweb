@@ -23,7 +23,7 @@ $(function main() {
 			vars.albumslist     = [];					// selected albums
 			vars.tagslist       = [];					// selected tags
 			vars.datetimes      = {start:'', end:''};	// selected datetimes
-			vars.limits         = {thumbnails:100};		// selected maximum thumbnails to display. normal: 100-2000
+			vars.limits         = {thumbnails:20};		// selected maximum thumbnails to display. normal: 100-2000
 			
 			vars.selectedkeys   = [];					// images id if thumbnail in gallery
 			vars.imagekeys      = [];					// selected images
@@ -43,8 +43,11 @@ $(function main() {
 	function m (messageid) {
 		if (messageid == '')
 			return messageid;
-		let message = "";
-		message = i18n? (i18n.frontend? i18n.frontend[messageid]: null): null;
+		let message;
+		if (i18n && i18n.frontend && i18n.frontend[messageid])
+			message = i18n.frontend[messageid];
+		else if (i18n && i18n.backend && i18n.backend[messageid])
+			message = i18n.backend[messageid];
 		return message? message: messageid;
 	}
 
@@ -89,8 +92,11 @@ $(function main() {
 						setLoginoutIcon();
 						initializeApp ();
 					}
+					else if (res.type=='error') {
+						$('#message').html(res.rows[0].message);
+					}
 					else
-						$('#message').html(m('InvalidLogin'));
+						$('#message').html(m('Forbidden'));
 				});
 		}
 		else {
