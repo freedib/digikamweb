@@ -23,7 +23,7 @@ $(function main() {
 			vars.albumslist     = [];					// selected albums
 			vars.tagslist       = [];					// selected tags
 			vars.datetimes      = {start:'', end:''};	// selected datetimes
-			vars.limits         = {thumbnails:20};		// selected maximum thumbnails to display. normal: 100-2000
+			vars.max_thumbnails = 20;					// selected maximum thumbnails to display. normal: 100-2000
 			
 			vars.selectedkeys   = [];					// images id if thumbnail in gallery
 			vars.imagekeys      = [];					// selected images
@@ -67,6 +67,7 @@ $(function main() {
 	/////// Login/logout handling ///////
 
 	$(document).ready(function() {
+		$('.menu').hide();
 		var testing = false;
 		if (testing) {
 			vars.state = 'loggedIn';
@@ -83,10 +84,12 @@ $(function main() {
 			postDataAndThen("/login", { username:$('#username').val(), password:$('#password').val() },
 				function(res, textStatus, jqXHR) {
 					if (res.type=='table/login') {
+						init_vars ();	// if vars were cleared after a logout
 						let row = res.rows[0];
 						vars.state = row.state;
 						vars.role = row.role;
 						vars.lang = row.lang;
+						vars.max_thumbnails = row.max_thumbnails? row.max_thumbnails: '';
 						i18n = row.translations;
 						setSelectionOptions('language',row.languages,row.lang);
 						setLoginoutIcon();
@@ -145,7 +148,7 @@ $(function main() {
 
 		$('.menu input[type=text').val('');
 
-		$('#limits').val(vars.limits.thumbnails);
+		$('#max_thumbnails').val(vars.max_thumbnails);
 		
 		$('.menu').show();
 		enableField ($('#download'), false);
@@ -199,8 +202,8 @@ $(function main() {
 			vars.datetimes.start = $(this).val();
 		else if ($(this).prop('id') == 'datetime-end')
 			vars.datetimes.end = $(this).val();
-		else if ($(this).prop('id') == 'limits')
-			vars.limits.thumbnails = $(this).val();
+		else if ($(this).prop('id') == 'max_thumbnails')
+			vars.max_thumbnails = $(this).val();
 		launch_search ();
 	});
 
@@ -265,7 +268,7 @@ $(function main() {
 	
 	// create parameters list for image request
 	function imagesParameters () {
-		let paras_a=[], paras_t=[], paras_d='', paras_l=[], row;
+		let paras_a=[], paras_t=[], paras_d='', paras_m, row;
 		vars.albumslist.forEach(row => {
 			if (row.selected)
 				paras_a.push(row.id);
@@ -279,8 +282,8 @@ $(function main() {
 		if (ds==null || de==null)
 			return null;
 		paras_d = [ds, de];
-		paras_l = [vars.limits.thumbnails];
-		return {albumsid:paras_a, tagsid:paras_t, datetimes:paras_d, limits:paras_l};
+		paras_m = vars.max_thumbnails;
+		return {albumsid:paras_a, tagsid:paras_t, datetimes:paras_d, max_thumbnails:paras_m};
 	}
 
 	// create parameters list for zip search
@@ -355,7 +358,7 @@ $(function main() {
 	// get data from server and pass data to nextstep
 	function getDataAndThen (urlbase, parameters, nextstep, datakey) {
 		const url = createURL(urlbase, parameters);
-		// console.log ('get '+url);
+	//	console.log ('get '+url+', datakey=');
 
 		let imagedims;
 		

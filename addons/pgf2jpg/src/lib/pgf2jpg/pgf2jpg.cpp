@@ -45,16 +45,24 @@ static unsigned char* readPGFImageData(unsigned char *pgfbuf, size_t pgfsize, si
 		return NULL;
 	}
 
+	if (PGF2JPG_DEBUG)
+		printf ("... pgfImg.channels()=%d\n", pgfImg.Channels());		// An image of type RGB contains 3 image channels (B, G, R)
+
 	*rgbsize = bytes_per_line*(*rgbheight);
 	unsigned char *rgbbuf = new unsigned char[*rgbsize];
 	if (PGF2JPG_DEBUG)
 		printf ("... new[%6ld] -> rgbbuf(%p)\n", *rgbsize, rgbbuf);
 
 	if (BigEndian) {
-		int map[] = { 3, 2, 1, 0 };
+		if (PGF2JPG_DEBUG)
+			printf ("... BigEndian\n");
+		int map[] = { 3, 2, 1, 0 };			// BGR[A]
 		pgfImg.GetBitmap(bytes_per_line, rgbbuf, depth, map);
 	} else {
-		int map[] = { 0, 1, 2, 3 };
+		if (PGF2JPG_DEBUG)
+			printf ("... LittleEndian\n");
+		//	int map[] = { 0, 1, 2, 3 };			// RGBR
+			int map[] = { 2, 1, 0, 3 };			// for 3 channels, tweek to have it work. not sure why
 		pgfImg.GetBitmap(bytes_per_line, rgbbuf, depth, map);
 	}
 	return rgbbuf;
@@ -111,7 +119,7 @@ unsigned char* rotateRGB (unsigned char *rgbbuf, size_t rgbsize, int orientation
 	int wd=*rgbwidth, hd=*rgbheight;
 
 	if (PGF2JPG_DEBUG)
-		printf ("rgbsize=%ld, rgbwidth=%d, rgbheight=%d, rgbsize'=%d\n",
+		printf ("... rotateRGB: rgbsize=%ld, rgbwidth=%d, rgbheight=%d, rgbsize'=%d\n",
 			rgbsize,*rgbwidth,*rgbheight,*rgbwidth**rgbheight*b3);
 
 

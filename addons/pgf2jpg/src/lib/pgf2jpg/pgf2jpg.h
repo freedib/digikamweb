@@ -4,6 +4,9 @@
 #include <stddef.h>
 
 
+//#define PGF2JPG_DEBUG 0		// done in CMakeLists.txt
+
+
 // digikam/core/metadataengine/engine/metaengine.h
  enum ImageOrientation
 {
@@ -19,8 +22,6 @@
 };
 
 typedef unsigned char uchar;
-
-#define PGF2JPG_DEBUG 0
 
 unsigned char* pgf2jpg (unsigned char *pgfbuf, size_t pgfsize, int orientation, \
 						size_t *jpgsize, size_t *jpgwidth, size_t *jpgheight);

@@ -35,6 +35,8 @@ if (CLI)
 	include_directories (${LIB_INC})
 	add_executable (pgf2jpg ${MAIN_SRC} ${LIB_SRC})
 
+	add_definitions(-DPGF2JPG_DEBUG=0)			# set to 1 for debug messages
+
 else()
 	message( "Building Node-Addon..." )
 	
@@ -56,6 +58,7 @@ else()
 	
 	# define NAPI_VERSION
 	add_definitions(-DNAPI_VERSION=3)
+	add_definitions(-DPGF2JPG_DEBUG=0)			# set to 1 for debug messages
         
 endif ()
 

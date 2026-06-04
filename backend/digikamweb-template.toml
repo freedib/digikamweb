@@ -19,7 +19,7 @@ socket          = "/PATH_TO_MARIADB_SOCKET_FILE"	# (mysql.socket)
 									# when MySQL internal. can be found with ps -ef | grep digikam
 host			= "localhost"		# when MySQL server
 user			= "digikam"			# when MySQL server
-password		= ""				# when MySQL server
+password		= "PASSWORD"		# when MySQL server
 
 [http]
 root_dir		= "../frontend"		# HTML root. may be an absolute path
@@ -33,6 +33,7 @@ images_root		= "/photos"			# if use_urls, a symbolic link will be made from firs
 									# to {root_dir}/{images_root} to allow access from the navigator
 
 thumbnails_limit = 2000				# maximum thumbnails to display, superceedes users limit
+thumbnails_default = 5				# initial value on browser
 
 force_ssl		= false				# if true, use https
 ssl_directory	= "./ssl"
@@ -49,7 +50,6 @@ language		= "en"
 [[users]]							# normal user from web with full access
 user			= "photo"
 password		= "photo"
-role			= "user"
 language		= "fr"
 
 [[users]]							# user from web with limited access
@@ -57,4 +57,4 @@ user			= "share"
 password		= "share"
 language		= "en"
 restrict_albums = ["album-1", "album-2"]	# allowed albums
-restrict_tags   = ["tags-1","tags-2"]		# allowed tags
+restrict_tags   = ["name","wildcard *"]		# allowed tags by name or wildcard (just start of name checked)

@@ -234,12 +234,14 @@ app.post('/login', function(req, res) {
 		session.state = 'loggedIn';
 
 		respond_json(res, {type:'table/login', rows:[{state:session.state, username:session.username, role:session.role,
+						   max_thumbnails:config.http.thumbnails_default, 
 						   lang:session.lang, languages:config.server.languages, translations:i18n[session.lang]}]});
 		// add session to server sessions list
 		sessions[session.key] = {state: session.state, user:config.users[iuser]};
 		printwlog ('??? login:  sessions('+Object.keys(sessions).length+'): +++', session.key);
 		printlog('!!! session:  '+session.state + ': ' + session.username);
 		update_restricted_albums (session.key);
+		update_restricted_tags (session.key);
 	}
 	else {
 		session.state = 'loggedOut';
@@ -277,7 +279,7 @@ app.get('/translations{/:lang}', function(req, res) {
 		respond_http_error (res, 501);
 });
 
-// return a list of albums
+// return an albums list
 app.get('/albums{/:id}', function(req, res) {
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
@@ -285,7 +287,7 @@ app.get('/albums{/:id}', function(req, res) {
 		respond_json_query (res, get_sql('albums_list'), 'table/albums_list', filter_albums);
 });
 
-// return a list of tags
+// return a tags list
 app.get('/tags{/:id}', function(req, res) {
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
@@ -295,10 +297,10 @@ app.get('/tags{/:id}', function(req, res) {
 
 // else return thumbnails list corresponding to search parameters
  app.get('/search{/:id}', function(req, res) {
-	let user_limit = req.query.limits==''? 100000: Number(req.query.limits);
-	let server_limit = Number(config.http.thumbnails_limit);
-	let best_limit = ''+ Math.min (server_limit, user_limit);
-	let limit = create_search_limit (best_limit);
+	let user_max_thumbnails = req.query.max_thumbnails==''? 100000: req.query.max_thumbnails;
+	let server_max_thumbnails = config.http.thumbnails_limit;
+	let max_thumbnails = ''+ Math.min (Number(server_max_thumbnails), Number(user_max_thumbnails));
+	let limit = create_search_limit (max_thumbnails);
 	let where, sql;
 	
 	if (req.params.id && req.params.id!='undefined')
@@ -311,7 +313,7 @@ app.get('/tags{/:id}', function(req, res) {
 	}
 	else {
 		let user = sessions[req.session.key].user;
-			let albumsid;
+		let albumsid;
 		if (req.query.albumsid=='' && user.albumsid)			// no selection. select all resricted albums
 			albumsid = user.albumsid.join(',');
 		else if (req.query.albumsid!='' && user.albumsid)	 {	// selection, filter only restricted albums
@@ -321,7 +323,7 @@ app.get('/tags{/:id}', function(req, res) {
 			});
 			albumsid = albumsid.join(',');
 		}
-		else													// no selection, no restrict. no where
+		else													// no selection, no restricted. no where clause
 			albumsid = req.query.albumsid;
 		
 		where = replace_sql(create_search_where(albumsid, req.query.tagsid, req.query.datetimes));
@@ -706,16 +708,16 @@ function replace_sql (statement, args) {
 }
 
 // create search LIMIT clauses
-function create_search_limit (limits) {
-	if (limits)
-		return 'LIMIT '+limits+' ';
+function create_search_limit (limit) {
+	if (limit)
+		return 'LIMIT '+limit+' ';
 	return '';
 }
 
-// create search WHERE clause based on albums id, tags id and datetimes
-function create_search_where (albums, tags, datetimes) {
-	let subwhere_albums = where_or('${Images}.album', albums);
-	let subwhere_tags   = where_or('${ImageTags}.tagid', tags);
+// create search WHERE clause based on albumsid, tagsid and datetimes
+function create_search_where (albumsid, tagsid, datetimes) {
+	let subwhere_albums = where_or('${Images}.album', albumsid);
+	let subwhere_tags   = where_or('${ImageTags}.tagid', tagsid);
 	let subwhere_dates  = where_dates('${Images}.modificationDate', datetimes);
 
 	let where = where_and ([subwhere_albums, subwhere_tags, subwhere_dates]);
@@ -849,25 +851,30 @@ async function respond_zip_create (res, rows) {
 
 /////// paths utilities ///////
 
+// on start, read album_roots and albums to know read pictures path
+// also used to constrict search request when user have restricted_albums
 var album_roots = []
-var albums = []
+var albums_list = []
+
+// on start, read tags to expand user restricted_tags wildcards 
+var tags_list = []
+
 
 function get_image_path (album, name) {
-	const album_root_id = albums[album].albumRoot;
+	const album_root_id = albums_list[album].albumRoot;
 	const root_path = album_roots[album_root_id].specificPath;
-	const album_path = albums[album].relativePath;
+	const album_path = albums_list[album].relativePath;
 	return path.join (config.database.paths_prefix, root_path+album_path, name);
 }
 function get_image_url (album, name) {
-	const album_root_id = albums[album].albumRoot;
+	const album_root_id = albums_list[album].albumRoot;
 	const root_label = album_roots[album_root_id].label;
-	const album_path = albums[album].relativePath;
+	const album_path = albums_list[album].relativePath;
 	return path.join (config.http.images_root, root_label, album_path, name);
 }
 
 // create symbolic link for albums_root in frontend/photos
-// keep albums path to create image_url
-function read_albums () {
+function read_roots () {
 	db_query (db_digikam, get_sql('roots_list'))
 		.then ((rows) => {
 			album_roots = [];
@@ -885,21 +892,36 @@ function read_albums () {
 					catch (error) {	}
 				}
 			}
-
-			db_query (db_digikam, get_sql('albums_list'))
-				.then ((rows) => {
-					albums = [];
-					for (let irow=0; irow<rows.length; irow++)
-						albums[rows[irow].id] = rows[irow];
-					console.log(''+albums.length+' albums');
-				})
-				.catch ((error) => { console.error(error)});
 		 })
 		.catch ((error) => { console.log(error)});
 }
 
+// keep albums path to create image_url
+function read_albums () {
+	db_query (db_digikam, get_sql('albums_list'))
+		.then ((rows) => {
+			albums_list = [];
+			for (let irow=0; irow<rows.length; irow++)
+				albums_list[rows[irow].id] = rows[irow];
+			printlog(''+albums_list.length+' albums_list');
+		})
+		.catch ((error) => { console.error(error)});
+}
 
-// get restricted albums id list for a user
+// keep tags name to expand user restricted_tags
+function read_tags () {
+	db_query (db_digikam, get_sql('tags_list'))
+		.then ((rows) => {
+			tags_list = [];
+			for (let irow=0; irow<rows.length; irow++)
+				tags_list[rows[irow].id] = rows[irow];
+			printlog(''+tags_list.length+' tags_list');
+		})
+		.catch ((error) => { console.error(error)});
+}
+
+
+// get restricted albumsid for a user
 function update_restricted_albums (sessionkey) {
 	let user = sessions[sessionkey].user;
 
@@ -908,20 +930,47 @@ function update_restricted_albums (sessionkey) {
 	if (user.restrict_albums && user.restrict_albums.length>0) {
 		user.albumsid = [];
 		for (let ira=0; ira<user.restrict_albums.length; ira++) {
-			let ua = albums.find(ra => ra && ra.relativePath==user.restrict_albums[ira]);
-			user.albumsid.push(ua.id);
+			let ura = albums_list.find(ra => ra && ra.relativePath==user.restrict_albums[ira]);
+			user.albumsid.push(ura.id);
 		}
+		printwlog ('update_restricted_albums: user.albumsid=', user.albumsid);
 	}
 }
 
-// if user.restrict_albums limit album list sent to browser 
+// get restricted tagsid for a user
+// expand '*' wildcard
+function update_restricted_tags (sessionkey) {
+	let user = sessions[sessionkey].user;
+	user.tagsid = null;
+
+	if (user.restrict_tags && user.restrict_tags.length>0) {
+		user.tagsid = [];
+		for (let irt=0; irt<user.restrict_tags.length; irt++) {
+			let urt = tags_list.find(rt => rt && rt.name==user.restrict_tags[irt]);
+			let istar;
+			if (urt)
+				user.tagsid.push(urt.id);
+			else if ((istar = user.restrict_tags[irt].indexOf('*')) >= 0) {
+				let starttag = user.restrict_tags[irt].substr(0,istar); 
+				for (let it=0; it<tags_list.length; it++) {
+					if (tags_list[it].name.startsWith(starttag))
+						user.tagsid.push(tags_list[it].id);
+				}
+			}
+		}
+		printwlog ('update_restricted_tags: user.tagsid=', user.tagsid);
+	}
+}
+
+// if user.restrict_albums constrict album list sent to browser 
 function filter_albums (sessionkey,	rows) {
 	let user = sessions[sessionkey].user;
+	printwlog ('filter_albums:', user.restrict_albums, user.albumsid);
 	
-	if (user.restrict_albums && user.restrict_albums.length>0) {
+	if (user.albumsid && user.albumsid.length>0) {
 		let user_rows = [];
 		for (let irow=0; irow<rows.length; irow++) {
-			if (user.restrict_albums.indexOf( rows[irow].relativePath ) >= 0)
+			if (user.albumsid.indexOf( rows[irow].id ) >= 0)
 				user_rows.push(rows[irow]);
 		}
 		rows = user_rows;
@@ -929,21 +978,22 @@ function filter_albums (sessionkey,	rows) {
 	return rows;
 }
 
-// if user.restrict_tags limit tags list sent to browser 
+// if user.restrict_tags constrict tags list sent to browser 
 function filter_tags (sessionkey, rows) {
 	let user = sessions[sessionkey].user;
+	printwlog ('filter_tags:', user.restrict_tags, user.tagsid);
 	
-	if (user.restrict_tags && user.restrict_tags.length>0) {
+	printwlog ('update_restricted_tags: user.tagsid=', user.tagsid);
+	if (user.tagsid && user.tagsid.length>0) {
 		let user_rows = [];
 		for (let irow=0; irow<rows.length; irow++) {
-			if (user.restrict_tags.indexOf( rows[irow].name ) >= 0)
+			if (user.tagsid.indexOf( rows[irow].id ) >= 0)
 				user_rows.push(rows[irow]);
 		}
 		rows = user_rows;
 	}
 	return rows;
 }
-
 
 
 
@@ -955,7 +1005,9 @@ function filter_tags (sessionkey, rows) {
 		.then((db) => {
 			db_digikam = db;
 			
-			read_albums();	// create symbolic links for albums
+			read_roots();	// create symbolic links for albums_roots
+			read_albums();	// keep copy albums list
+			read_tags();	// keep copy of tags list
 			
 			httpserver.listen(config.http.port, function() {
 				console.log(m(null,'Server')+' @ http://localhost:' + config.http.port);
