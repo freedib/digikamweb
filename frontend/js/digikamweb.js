@@ -306,7 +306,7 @@ $(function main() {
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
-			$('.check-overlay').prop('checked', false);			// unselect all images
+			$('.thumbnail-checkbox').prop('checked', false);			// unselect all images
 			vars.selectedkeys = [];								// empty checked list
 		 }
 	}
@@ -436,7 +436,7 @@ $(function main() {
 	//	console.log (list);
 
 		var html='';
-		html +=	'<ul class="checklist">';
+		html +=	'<ul>';
 		for (let irow=0; irow<list.length; irow++) {
 			row = list[irow];
 			if (listkey=='albums')
@@ -509,8 +509,8 @@ $(function main() {
 				// prepare an empty image which will be updated on thumbnail reception
 				// this insure thumbnail will be ordered on display event if not received ordered
 				let html = '';
-				html += '<div class="image-container">'
-				html +=     '<input type="checkbox" id="cb_'+imagekey+'" class="check-overlay"/>'
+				html += '<div class="thumbnail-container">'
+				html +=     '<input type="checkbox" id="cb_'+imagekey+'" class="thumbnail-checkbox"/>'
 				html +=         '<img id="tb_'+imagekey+'" id="tb_'+imagekey+'" src=""/>'
 				html +=         '<label for "cb_'+imagekey+'">'
 				html +=     '</label>'
