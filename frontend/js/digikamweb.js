@@ -135,12 +135,14 @@ $(function main() {
 		
 		// reset buttons
 		$('.menu input[type=checkbox]').prop('checked', false);		// checkboxes
+		$('#sort').prop('checked', false);
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 
 		// make query to fill albums and tags
-		getDataAndThen ('/albums/', {}, updateSelectionList, 'albums');
-		getDataAndThen ('/tags/', {}, updateSelectionList, 'tags');
+		let parameters = listsParameters();
+		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
+		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
 
 		// set language option
 		$('#opt_lang_'+vars.lang).prop('checked', true);
@@ -155,6 +157,7 @@ $(function main() {
 	}
 
 	function cleanApp () {
+		$('#sort').prop('checked', false);
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 		
@@ -206,6 +209,15 @@ $(function main() {
 			vars.datetimes.end = $(this).val();
 		else if ($(this).prop('id') == 'max_thumbnails')
 			vars.max_thumbnails = $(this).val();
+		launch_search ();
+	});
+
+	// change sort order. launch search
+	$('#sort').on('change', function(event) {
+		let parameters = listsParameters();
+		// update lists order
+		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
+		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
 		launch_search ();
 	});
 
@@ -270,7 +282,7 @@ $(function main() {
 	
 	// create parameters list for image request
 	function imagesParameters () {
-		let paras_a=[], paras_t=[], paras_d='', paras_m, row;
+		let paras_a=[], paras_t=[], paras_d='', paras_m, paras_s, row;
 		vars.albumslist.forEach(row => {
 			if (row.selected)
 				paras_a.push(row.id);
@@ -285,7 +297,14 @@ $(function main() {
 			return null;
 		paras_d = [ds, de];
 		paras_m = vars.max_thumbnails;
-		return {albumsid:paras_a, tagsid:paras_t, datetimes:paras_d, max_thumbnails:paras_m};
+		paras_s = $('#sort').is(':checked')? 'ASC': 'DESC';
+		return {albumsid:paras_a, tagsid:paras_t, datetimes:paras_d, max_thumbnails:paras_m, sort:paras_s};
+	}
+	
+	// create parameters list for image request
+	function listsParameters () {
+		let paras_s = $('#sort').is(':checked')? 'ASC': 'DESC';
+		return {sort:paras_s};
 	}
 
 	// create parameters list for zip search

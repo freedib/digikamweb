@@ -28,16 +28,16 @@ small {
 
 .page-container {
 	display: grid;
-	grid-template-columns: auto 1fr auto auto;
+	grid-template-columns: auto 1fr auto auto auto;
 	grid-template-rows: 3.5rem 7rem 1rem 0.5fr 1rem 0.5fr;
 	height: 100vh;
 	grid-template-areas:
-	  "header-t header-m header-d header-l"
-	  "menu-d   content  content  content"
-	  "menu-aa  content  content  content"
-	  "menu-a   content  content  content"
-	  "menu-tt  content  content  content"
- 	  "menu-t   content  content  content"
+	  "header-t header-m header-s header-d header-l"
+	  "menu-d   content  content  content  content"
+	  "menu-aa  content  content  content  content"
+	  "menu-a   content  content  content  content"
+	  "menu-tt  content  content  content  content"
+ 	  "menu-t   content  content  content  content"
 }
 
 .header-t {
@@ -48,6 +48,10 @@ small {
 .header-m {
 	grid-area: header-m;
 	padding-right: .5rem;
+}
+.header-s {
+	grid-area: header-s;
+	padding-right: 4rem;
 }
 .header-d {
 	grid-area: header-d;
@@ -137,8 +141,24 @@ padding-top: 1rem;
 	-moz-appearance: none;
 }
 
+
 /* header checkboxes images */
 
+/* sort */
+.header .sort {
+	background-image:url(/images/sort-descending.svg);
+	opacity: 1;
+}
+.header .sort:checked + .base-checkbox {
+	background-image:url(/images/sort-ascending.svg);
+	opacity: 1;
+}
+
+.header .sort:hover, .sort-descending:hover {
+	opacity:0.7;
+}
+
+/* select */
 .header .select-single-off {
 	background-image:url(/images/select-single-off.svg);
 	opacity: 0.8;

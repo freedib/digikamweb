@@ -91,3 +91,7 @@ It is possible to use SSL by setting force_ssl to true. The provided key is self
 # License
 
 [GPLv3](./COPYING)
+
+# Links
+
+Almost all icons adapted from [SVG repo](https://www.svgrepo.com/)

@@ -281,18 +281,20 @@ app.get('/translations{/:lang}', function(req, res) {
 
 // return an albums list
 app.get('/albums{/:id}', function(req, res) {
+	let sort = req.query.sort? req.query.sort: 'ASC';
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else
-		respond_json_query (res, get_sql('albums_list'), 'table/albums_list', filter_albums);
+		respond_json_query (res, get_sql('albums_list',{sort:sort}), 'table/albums_list', filter_albums);
 });
 
 // return a tags list
 app.get('/tags{/:id}', function(req, res) {
+	let sort = req.query.sort? req.query.sort: 'ASC';
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else
-		respond_json_query (res, get_sql('tags_list'), 'table/tags_list', filter_tags);
+		respond_json_query (res, get_sql('tags_list',{sort:sort}), 'table/tags_list', filter_tags);
 });
 
 // else return thumbnails list corresponding to search parameters
@@ -301,14 +303,14 @@ app.get('/tags{/:id}', function(req, res) {
 	let server_max_thumbnails = config.http.thumbnails_limit;
 	let max_thumbnails = ''+ Math.min (Number(server_max_thumbnails), Number(user_max_thumbnails));
 	let limit = create_search_limit (max_thumbnails);
+	let sort = req.query.sort? req.query.sort: 'ASC';
 	let where, sql;
 	
 	if (req.params.id && req.params.id!='undefined')
 		respond_http_error (res, 501);
 	else if (req.query.tagsid.length > 0) {
 		where = replace_sql(create_search_where(req.query.albumsid, req.query.tagsid, req.query.datetimes));
-	//	printlog ('??? search_tags',where);
-		sql = get_sql('search_tags', {where:where,limit:limit});
+		sql = get_sql('search_tags', {where:where,limit:limit,sort:sort});
 		respond_json_query (res, sql, 'table/search_tags');
 	}
 	else {
@@ -327,8 +329,7 @@ app.get('/tags{/:id}', function(req, res) {
 			albumsid = req.query.albumsid;
 		
 		where = replace_sql(create_search_where(albumsid, req.query.tagsid, req.query.datetimes));
-		printlog ('??? search_albums',where);
-		respond_json_query (res, get_sql('search_albums',{where:where,limit:limit}), 'table/search_albums');
+		respond_json_query (res, get_sql('search_albums',{where:where,limit:limit,sort:sort}), 'table/search_albums');
 	}
 });
 
@@ -667,14 +668,14 @@ function db_query_mariadb (db, sql) {
 var sql_statements = {
 	roots_list:		'SELECT id, label, specificPath FROM ${AlbumRoots}',
 	albums_list:	'SELECT id, albumRoot, relativePath FROM ${Albums} ' +
-					'ORDER BY relativePath ASC ', 
+					'ORDER BY relativePath ${sort}', 
 	tags_list:		'SELECT id, pid, name FROM ${Tags} ' +
-					'ORDER BY name ASC ',
+					'ORDER BY name ${sort}',
 	thumbnail_data:	'SELECT ${Thumbnails}.id, ${Thumbnails}.modificationDate, ${Thumbnails}.orientationHint, ' +
 						   '${Thumbnails}.data FROM ${Thumbnails} ' +
-					'${where} ',
+					'${where}',
 	image_url:		'SELECT ${Images}.id, ${Images}.album, ${Images}.name FROM ${Images} ' +
-				 	'${where} ',
+				 	'${where}',
 	search_albums:	'SELECT ${Images}.id, ${Images}.album, ${Images}.name, '+
 						   '${ImageInformation}.creationDate, ${UniqueHashes}.thumbId '+
 					'FROM ${Images} ' +
@@ -682,8 +683,7 @@ var sql_statements = {
 					'INNER JOIN ${UniqueHashes} ON ${Images}.uniqueHash=${UniqueHashes}.uniqueHash ' +
 					'INNER JOIN ${Thumbnails} ON ${Thumbnails}.id=${UniqueHashes}.thumbId ' +
 					'${where} ' +
-					'ORDER BY ${ImageInformation}.creationDate ASC ' + 
-					'${limit} ',
+					'ORDER BY ${ImageInformation}.creationDate ${sort} ${limit}',
 	search_tags:	'SELECT ${Images}.id, ${Images}.album, ${Images}.name, '+
 						   '${ImageInformation}.creationDate, ${UniqueHashes}.thumbId '+
 					'FROM ${ImageTags} ' +
@@ -692,8 +692,7 @@ var sql_statements = {
 					'INNER JOIN ${UniqueHashes} ON ${Images}.uniqueHash=${UniqueHashes}.uniqueHash ' +
 					'INNER JOIN ${Thumbnails} ON ${Thumbnails}.id=${UniqueHashes}.thumbId ' +
 					'${where} ' +
-					'ORDER BY ${ImageInformation}.creationDate ASC ' + 
-					'${limit} ',
+					'ORDER BY ${ImageInformation}.creationDate ${sort} ${limit}',
 }
 
 
@@ -902,7 +901,7 @@ function read_roots () {
 
 // keep albums path to create image_url
 function read_albums () {
-	db_query (db_digikam, get_sql('albums_list'))
+	db_query (db_digikam, get_sql('albums_list',{sort:'ASC'}))
 		.then ((rows) => {
 			albums_list = [];
 			for (let irow=0; irow<rows.length; irow++)
@@ -914,7 +913,7 @@ function read_albums () {
 
 // keep tags name to expand user restricted_tags
 function read_tags () {
-	db_query (db_digikam, get_sql('tags_list'))
+	db_query (db_digikam, get_sql('tags_list',{sort:'ASC'}))
 		.then ((rows) => {
 			tags_list = [];
 			for (let irow=0; irow<rows.length; irow++)
