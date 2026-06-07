@@ -158,10 +158,10 @@ $(function main() {
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 		
-		$('#galleryfield').unbind();
-		$('#galleryfield').empty();
-		$('#imagefield').unbind();
-		$('#imagefield').empty();
+		$('#gallery-container').unbind();
+		$('#gallery-container').empty();
+		$('#media-container').unbind();
+		$('#media-container').empty();
 		$('#albums-list').unbind();
 		$('#albums-list').empty();
 		$('#tags-list').unbind();
@@ -185,8 +185,10 @@ $(function main() {
 				doLoginout ();
 		}
 		else {
-			if (event.which === 27)
-				$('#imagefield').hide();
+			if (event.which === 27) {
+				$('#media-container').unbind();
+				$('#media-container').empty();
+			}
 		}
 	}); 
 
@@ -473,7 +475,8 @@ $(function main() {
 	// query a search for images and for the received list of thumbnails call renderThumnail
 	// handle event on images
 	function renderGallery (data) {
-		$('#imagefield').hide();
+		$('#media-container').unbind();
+		$('#media-container').empty();
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 
@@ -484,17 +487,17 @@ $(function main() {
 		}
 		else {
 		//	console.log ('render '+data.rows.length+' items');
-			$('#galleryfield').unbind();
-			$('#galleryfield').empty();
+			$('#gallery-container').unbind();
+			$('#gallery-container').empty();
 
 			vars.last_thumbdate = '0000-00-00';
 			for (let irow=0; irow<data.rows.length; irow++) {
 				row = data.rows[irow];
 				let row_thumbDate;
-				if (row.modificationDate.indexOf('T')>0)
-					row_thumbDate = row.modificationDate.split('T')[0];			// remove HH:MM:SS.CCC from datetime (SQLite3)
+				if (row.creationDate.indexOf('T')>0)
+					row_thumbDate = row.creationDate.split('T')[0];			// remove HH:MM:SS.CCC from datetime (SQLite3)
 				else
-					row_thumbDate = row.modificationDate.split(' ')[0];			// remove HH:MM:SS from datetime (Mariadb)
+					row_thumbDate = row.creationDate.split(' ')[0];			// remove HH:MM:SS from datetime (Mariadb)
 				let imagekey = ''+row.thumbId+'_'+row.id+'_'+ row_thumbDate;
 				getDataAndThen ('/thumbnails/'+row.thumbId, {}, renderThumnail, imagekey);
 
@@ -503,7 +506,7 @@ $(function main() {
 				console.log (vars.last_thumbdate, row_thumbDate);
 				if (vars.last_thumbdate != row_thumbDate) {
 					vars.last_thumbdate = row_thumbDate;
-					$('#galleryfield').append('<div>'+row_thumbDate+'</div>');
+					$('#gallery-container').append('<div><h2>'+row_thumbDate+'</h2></div>');
 				}
 
 				// prepare an empty image which will be updated on thumbnail reception
@@ -511,14 +514,15 @@ $(function main() {
 				let html = '';
 				html += '<div class="thumbnail-container">'
 				html +=     '<input type="checkbox" id="cb_'+imagekey+'" class="thumbnail-checkbox"/>'
-				html +=         '<img id="tb_'+imagekey+'" id="tb_'+imagekey+'" src=""/>'
+				html +=         '<img id="tb_'+imagekey+'" src=""/>'
 				html +=         '<label for "cb_'+imagekey+'">'
 				html +=     '</label>'
+				html +=     '<div id="tbn_'+imagekey+'" class="thumbnail-name"><small>'+row.name+'</small></div>'
 				html += '</div>'
-				$('#galleryfield').append(html);
+				$('#gallery-container').append(html);
 			}
 
-			$('#galleryfield').show();
+			$('#gallery-container').show();
 		}
 	}
 
@@ -538,12 +542,16 @@ $(function main() {
 		thumbnail.on('mouseover', [imagekey], function(event) {			// show checkbox if mouse over image
 			let checkbox = $('#cb_'+event.data[0]);
 			checkbox.fadeTo("fast", 1);
+			let imagename = $('#tbn_'+event.data[0]);
+			imagename.fadeTo("fast", 1);
 		});
 		
 		thumbnail.on('mouseout', [imagekey], function(event) {			// hide checkbox if mouse leave image
 			let checkbox = $('#cb_'+event.data[0]);
 			if (!checkbox.is(":hover") && !checkbox.is(':checked'))
 				checkbox.fadeTo("fast", 0);
+			let imagename = $('#tbn_'+event.data[0]);
+			imagename.fadeTo("fast", 0);
 		});
 
 		thumbnail.on('click', [imagekey], function(event) {				// hide checkbox if mouse leave image
@@ -639,12 +647,19 @@ $(function main() {
 
 	// display and inageURL
 	function renderImage (data) {
-	//	$('#galleryfield').hide();
 		imageUrl = getImageURL(data);
-		$('#imagefield').prop('src',imageUrl);
-		$('#imagefield').show();
-		$('#imagefield').on('click', function(event) {
-			$('#imagefield').hide();
+
+		let htmlmedia; 
+		if (  imageUrl.indexOf('.mp4')>0 || imageUrl.indexOf('.mov')>0 ||
+		      imageUrl.indexOf('.mpg')>0 || imageUrl.indexOf('.ogg')>0)
+			htmlmedia = 'video id="video-field" controls auto';
+		else
+			htmlmedia = 'img id="image-field"';
+		let html = '<'+htmlmedia+' src="'+imageUrl+'" class="media-field"/>';
+		$('#media-container').html(html);
+		$('#media-container').on('click', function(event) {
+			$('#media-container').unbind();
+			$('#media-container').empty();
 		});
 	}
 

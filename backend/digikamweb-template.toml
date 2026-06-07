@@ -33,7 +33,7 @@ images_root		= "/photos"			# if use_urls, a symbolic link will be made from firs
 									# to {root_dir}/{images_root} to allow access from the navigator
 
 thumbnails_limit = 2000				# maximum thumbnails to display, superceedes users limit
-thumbnails_default = 5				# initial value on browser
+thumbnails_default = 50				# initial value on browser
 
 force_ssl		= false				# if true, use https
 ssl_directory	= "./ssl"

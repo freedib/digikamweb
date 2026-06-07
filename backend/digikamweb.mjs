@@ -537,13 +537,14 @@ function db_open_dummy () {
 function db_open_sqlite3 () {
 	return new Promise ((resolve, reject) => {
 		db_tables['sqlite3'] = {
-			AlbumRoots:   'AlbumRoots',
-			Albums:       'Albums',
-			Tags:         'Tags',
-			Images:       'Images',
-			ImageTags:    'ImageTags',
-			UniqueHashes: 'dbthumbs.UniqueHashes',
-			Thumbnails:   'dbthumbs.Thumbnails',
+			AlbumRoots:       'AlbumRoots',
+			Albums:           'Albums',
+			Tags:             'Tags',
+			Images:           'Images',
+			ImageInformation: 'ImageInformation',
+			ImageTags:        'ImageTags',
+			UniqueHashes:     'dbthumbs.UniqueHashes',
+			Thumbnails:       'dbthumbs.Thumbnails',
 		}
 
 		console.log(m(null,'Database')+ ': '+ config.database.type);
@@ -597,13 +598,14 @@ function db_query_sqlite3 (db, sql) {
 function db_open_mariadb () {
 	return new Promise ((resolve, reject) => {
 		db_tables['mariadb'] = {
-			AlbumRoots:   'AlbumRoots',
-			Albums:       'Albums',
-			Tags:         'Tags',
-			Images:       'Images',
-			ImageTags:    'ImageTags',
-			UniqueHashes: 'UniqueHashes',
-			Thumbnails:   'Thumbnails',
+			AlbumRoots:       'AlbumRoots',
+			Albums:           'Albums',
+			Tags:             'Tags',
+			Images:           'Images',
+			ImageInformation: 'ImageInformation',
+			ImageTags:        'ImageTags',
+			UniqueHashes:     'UniqueHashes',
+			Thumbnails:       'Thumbnails',
 		}
 
 		console.log(m(null,'Database') + ': ' + config.database.type + ' ' + config.database.mariadb.connection);
@@ -674,21 +676,23 @@ var sql_statements = {
 	image_url:		'SELECT ${Images}.id, ${Images}.album, ${Images}.name FROM ${Images} ' +
 				 	'${where} ',
 	search_albums:	'SELECT ${Images}.id, ${Images}.album, ${Images}.name, '+
-						   '${Images}.modificationDate, ${UniqueHashes}.thumbId '+
+						   '${ImageInformation}.creationDate, ${UniqueHashes}.thumbId '+
 					'FROM ${Images} ' +
+					'INNER JOIN ${ImageInformation} ON ${ImageInformation}.imageid=${Images}.id ' +
 					'INNER JOIN ${UniqueHashes} ON ${Images}.uniqueHash=${UniqueHashes}.uniqueHash ' +
 					'INNER JOIN ${Thumbnails} ON ${Thumbnails}.id=${UniqueHashes}.thumbId ' +
 					'${where} ' +
-					'ORDER BY Images.modificationDate ASC ' + 
+					'ORDER BY ${ImageInformation}.creationDate ASC ' + 
 					'${limit} ',
 	search_tags:	'SELECT ${Images}.id, ${Images}.album, ${Images}.name, '+
-						   '${Images}.modificationDate, ${UniqueHashes}.thumbId '+
+						   '${ImageInformation}.creationDate, ${UniqueHashes}.thumbId '+
 					'FROM ${ImageTags} ' +
 					'INNER JOIN ${Images} ON ${ImageTags}.imageid=${Images}.id ' +
+					'INNER JOIN ${ImageInformation} ON ${ImageInformation}.imageid=${Images}.id ' +
 					'INNER JOIN ${UniqueHashes} ON ${Images}.uniqueHash=${UniqueHashes}.uniqueHash ' +
 					'INNER JOIN ${Thumbnails} ON ${Thumbnails}.id=${UniqueHashes}.thumbId ' +
 					'${where} ' +
-					'ORDER BY Images.modificationDate ASC ' + 
+					'ORDER BY ${ImageInformation}.creationDate ASC ' + 
 					'${limit} ',
 }
 
@@ -718,7 +722,7 @@ function create_search_limit (limit) {
 function create_search_where (albumsid, tagsid, datetimes) {
 	let subwhere_albums = where_or('${Images}.album', albumsid);
 	let subwhere_tags   = where_or('${ImageTags}.tagid', tagsid);
-	let subwhere_dates  = where_dates('${Images}.modificationDate', datetimes);
+	let subwhere_dates  = where_dates('${ImageInformation}.creationDate', datetimes);
 
 	let where = where_and ([subwhere_albums, subwhere_tags, subwhere_dates]);
 	return where.length>0? 'WHERE '+where+' ': '';

@@ -11,6 +11,20 @@ html {
 body {
 }
 
+h1 {
+	font-size: 2em;  
+	font-weight: bold;  
+}
+h2 {
+	font-size: 1.3em;  
+	font-weight: 500;  
+}
+small {
+	font-size: .4em;  
+	font-weight: lighter;  
+}
+
+
 
 .page-container {
 	display: grid;
@@ -293,15 +307,19 @@ padding-top: 1rem;
 
 /******* content *******/
 
-#imagefield {
-	min-height: 0:
-}
-/* standlone image */
-.imagefield {
+/* standlone image or video */
+.media-field {
 	display: block;
 	margin: auto;
 	max-height: 25rem;
 	padding-bottom: 3rem;
+}
+
+#image-field {
+	min-height: 0:
+}
+#video-field {
+	min-height: 0:
 }
 
 
@@ -332,6 +350,17 @@ padding-top: 1rem;
 }
 .thumbnail-checkbox:hover {
 	opacity:1;
+}
+.thumbnail-container img {
+	max-height: 192px;
+	padding-bottom: 1rem;
+}
+.thumbnail-name {
+	position: absolute;
+	bottom: 0;
+	left:0;
+	opacity: 0;
+	margin-right: -100px;		/* allo overflow on next element (which is hidden) */ 
 }
 
 
