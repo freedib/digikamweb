@@ -477,7 +477,8 @@ void CDecoder::DequantizeValue(CSubband* band, UINT32 bandPos, int quantParam) {
 		GetNextMacroBlock();
 	}
 
-	band->SetData(bandPos, m_currentBlock->m_value[m_currentBlock->m_valuePos] << quantParam);
+	// changed to avoid ASAN warning
+	band->SetData(bandPos, ((unsigned)m_currentBlock->m_value[m_currentBlock->m_valuePos]) << quantParam);
 	m_currentBlock->m_valuePos++;
 }
 

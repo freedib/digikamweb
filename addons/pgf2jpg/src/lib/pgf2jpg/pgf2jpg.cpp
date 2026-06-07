@@ -36,6 +36,7 @@ static unsigned char* readPGFImageData(unsigned char *pgfbuf, size_t pgfsize, si
 	*rgbwidth = pgfImg.Width();
 	*rgbheight = pgfImg.Height();
 	int bytes_per_line = (*rgbwidth) * (depth/8);
+	int real_bytes_per_line = (*rgbwidth) * 4;			// need allocate more
 
 	try {
 		pgfImg.Read();
@@ -48,8 +49,12 @@ static unsigned char* readPGFImageData(unsigned char *pgfbuf, size_t pgfsize, si
 	if (PGF2JPG_DEBUG)
 		printf ("... pgfImg.channels()=%d\n", pgfImg.Channels());		// An image of type RGB contains 3 image channels (B, G, R)
 
-	*rgbsize = bytes_per_line*(*rgbheight);
+	*rgbsize = real_bytes_per_line*(*rgbheight);
 	unsigned char *rgbbuf = new unsigned char[*rgbsize];
+	if (rgbbuf==NULL) {
+		printf ("*** pgf2jpg:readPGFImageData: new[%6ld] -> rgbbuf(%p)\n", *rgbsize, rgbbuf);
+		return NULL;
+	}
 	if (PGF2JPG_DEBUG)
 		printf ("... new[%6ld] -> rgbbuf(%p)\n", *rgbsize, rgbbuf);
 
@@ -76,9 +81,14 @@ unsigned char* pgf2jpg (unsigned char *pgfbuf, size_t pgfsize, int orientation,
 
 	// convert PFG data to RGB. returns an RGB array (3 bytes per pixel)
 	rgbbuf = readPGFImageData (pgfbuf, pgfsize, &rgbsize, &rgbwidth, &rgbheight);
+	if (rgbbuf==NULL)
+		return NULL;
 
 	// rotate buffer if required. old buffer is deleted
 	rgbbuf = rotateRGB (rgbbuf, rgbsize, orientation, &rgbwidth, &rgbheight);
+	if (rgbbuf==NULL)
+		return NULL;
+
 	if (PGF2JPG_DEBUG)
 		printf ("... rgbbuf = (%p)\n", rgbbuf);
 
@@ -90,6 +100,10 @@ unsigned char* pgf2jpg (unsigned char *pgfbuf, size_t pgfsize, int orientation,
 
 	jpgbufsize = pgfsize*2;					// should be enough;
 	jpgbuf = new unsigned char[jpgbufsize];
+	if (jpgbuf==NULL) {
+		printf ("*** pgf2jpg:pgf2jpg: new[%6ld] -> jpgbuf(%p)\n", jpgbufsize, jpgbuf);
+		return NULL;
+	}
 	if (PGF2JPG_DEBUG)
 		printf ("... new[%6ld] -> jpgbuf(%p)\n", jpgbufsize, jpgbuf);
 	jpgtmpsize = 0;
@@ -111,6 +125,10 @@ unsigned char* pgf2jpg (unsigned char *pgfbuf, size_t pgfsize, int orientation,
 unsigned char* rotateRGB (unsigned char *rgbbuf, size_t rgbsize, int orientation,
 						int *rgbwidth, int *rgbheight) {
 	unsigned char *rotbuf = new unsigned char[rgbsize];
+	if (rotbuf==NULL) {
+		printf ("*** pgf2jpg:rotateRGB: new[%6ld] -> rotbuf(%p)\n", rgbsize, rotbuf);
+		return NULL;
+	}
 	if (PGF2JPG_DEBUG)
 		printf ("... new[%6ld] -> rotbuf(%p)\n", rgbsize, rotbuf);
 	int b3=3;		// bytes per pixel

@@ -18,10 +18,11 @@ namespace // anonymous namespace to hide local functions / constants / etc.
 {
 // ////////////////////////////////////////
 // data types
-using uint8_t  = unsigned char;
-using uint16_t = unsigned short;
-using  int16_t =          short;
-using  int32_t =          int; // at least four bytes
+using uint8_t   = unsigned char;
+using uint16_t  = unsigned short;
+using  int16_t  =          short;
+using  int32_t  =          int; // at least four bytes
+using  uint32_t = unsigned int; // at least four bytes
 
 // ////////////////////////////////////////
 // constants
@@ -124,7 +125,8 @@ struct BitWriter
   {
     // append the new bits to those bits leftover from previous call(s)
     buffer.numBits += data.numBits;
-    buffer.data   <<= data.numBits;
+//  buffer.data   <<= data.numBits;
+    buffer.data = ((uint32_t) buffer.data) << data.numBits;	// to avoid ASAN warning
     buffer.data    |= data.code;
 
     // write all "full" bytes

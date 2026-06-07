@@ -28,6 +28,9 @@ Napi::Value ConvertPFG2JPG(const Napi::CallbackInfo &info) {
 
 		size_t jpgsize=0, jpgwidth=0, jpgheight=0;
 		char *jpgbuf = (char *) pgf2jpg ((unsigned char *)pgfbuf, pgfsize, orientation, &jpgsize, &jpgwidth, &jpgheight);
+		if (jpgbuf==NULL)
+			return info.Env().Undefined();
+
 
 		Napi::Buffer<char> outBuf = Napi::Buffer<char>::New(env, jpgbuf, jpgsize, FreeJPGData);
 

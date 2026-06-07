@@ -14,7 +14,7 @@
   "main": "./build/Release/pgf2jpg.node",
   "module": "./src/node/pgf2jpg.mjs",
   "exports": {
-    "require":"./build/Release/pgf2jpg.node",
+    "require": "./build/Release/pgf2jpg.node",
     "import": "./src/node/pgf2jpg.mjs"
   },
   "author": "Didier Bertrand",

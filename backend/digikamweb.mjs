@@ -433,11 +433,11 @@ function respond_thumbnail_query (res, sql) {
 			//	printlog (rows[0].id, rows[0].orientationHint);
 				var pgfdata = Buffer.from(rows[0].data, 'binary');
 				var imageinfojpg = pgf2jpg(pgfdata,rows[0].orientationHint);
-
-				if (false)									// tests
-					dump_images (pgfdata,imageinfojpg.data);
-				 
-				respond_image (res, imageinfojpg);			// blob or base64
+				if (imageinfojpg) {
+					if (false)									// tests
+						dump_images (pgfdata,imageinfojpg.data);
+					respond_image (res, imageinfojpg);			// blob or base64
+				}
 			}
 		})
 		.catch ((error) => {
