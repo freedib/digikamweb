@@ -131,7 +131,7 @@ const validate_role = (req, res, next) => {
 	if (req.method=='GET' && (req.url=='/' ||			// static routing
 		req.url.startsWith('/js/') || req.url.startsWith('/css/') ||
 		req.url.startsWith('/images/') || req.url.startsWith('/download/') ||
-		req.url=='/favicon.ico' || req.url=='/index-n.html' ))
+		req.url=='/favicon.ico' || req.url=='/index-test.html' ))
 		next();
 	else if (req.method=='POST' && (req.url=='/login'||req.url=='/logout'))
 		next();

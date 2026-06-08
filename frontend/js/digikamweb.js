@@ -415,11 +415,10 @@ $(function main() {
 
 	// reveive albums and tags data from server
 	function updateSelectionList (data, datakey) {
-		let listobj, checkfirst=false;
+		let listobj;
 
 		if (datakey==='albums') {
 			listobj = vars.albumslist;
-		//	checkfirst = true;
 		}
 		else
 			listobj = vars.tagslist;
@@ -429,7 +428,7 @@ $(function main() {
 
 		for (let irow=0; irow<data.rows.length; irow++) {
 			var row = data.rows[irow];
-			row.selected = (checkfirst && irow==0)? true: false;
+			row.selected = false;
 			listobj.push(row);
 		}
 		
@@ -438,7 +437,7 @@ $(function main() {
 	
 
 	function setSelectionOptions (fieldid, options, defaultvalue) {
-		html = '<select id="'+fieldid+'">';
+		let html = '<select id="'+fieldid+'">';
 		var optionslength = options.length;
 		for (var opt = 0; opt < optionslength; opt++) {
 			if (options[opt]==defaultvalue)
@@ -450,31 +449,29 @@ $(function main() {
 		
 		$('#language').html(html);
 	}
-
+	
 	// display albums or tags for selection
 	function selectItems (listkey, list) {
 		
 	//	console.log (list);
 
-		var html='';
-		html +=	'<ul>';
-		for (let irow=0; irow<list.length; irow++) {
-			row = list[irow];
-			if (listkey=='albums')
-				html += '<li><input type="checkbox" '+
-						'id="'+listkey+'_'+irow+'" name="'+listkey+'" '+
-						'value="'+irow+'">'+row.relativePath+'</li>';
-			else if (listkey=='tags' && row.pid==4) {
-				html += '<li><input type="checkbox" '+
-						'id="'+listkey+'_'+irow+'" name="'+listkey+'" '+
-						'value="'+irow+'">'+row.name+'</li>';
-			}
-		}
-		html +=	'</ul>';
+		let use_tree = true;
 
+		let html='';
+		
+		if (use_tree) {
+			let tree = characterizeTree (listkey, list);
+			html = '<ul>'+ buildHtmlTree (listkey, tree) +'</ul>';
+		}
+		else {
+			html = '<ul>'+ buildHtmlList (listkey, list) +'</ul>';
+		}
+	
+	//	console.log (html);
+			
 		$('#'+listkey+'-list').html(html);
 
-		// hide unused lang
+		// hide language titles
 		selectLanguage(vars.lang);
 	
 		// set on change function
@@ -486,7 +483,85 @@ $(function main() {
 			});
 		}
 	}
+	
+	// get the structure of the tree
+	function characterizeTree (listkey, list) {
+		let tree={}, ptree;
+		for (let ilist=0; ilist<list.length; ilist++) {
+			
+			if (listkey=='albums')
+				item = list[ilist].relativePath;
+			else if (listkey=='tags' && list[ilist].pid==4)
+				item = list[ilist].name;
+			else
+				continue;
+			
+			let parts = item.split('/');
+			let firstpart = parts.length>1? 1: 0;		// with albums, first part is always ""
+			for (let ipart=firstpart, ptree=tree; ipart<parts.length; ipart++) {
+				node = 'node_'+parts[ipart];
+				if (!ptree[node]) {			
+					let id = ilist;						// id is the index of item in vars.albumslist ot vars.tagslist
+					if (ipart!=parts.length-1)
+						id = -1;
+					ptree[node] = {id:id,children:0};	// for parents create fake ids
+				}
+				else if (ipart==parts.length-1)
+					ptree[node].id = ilist;				// update id if parent came after chlidren
+				else if (ipart==parts.length-2)
+					++ptree[node].children;				// update count just for the last parent
+				ptree = ptree[node]
+			}
+		}
+	//	console.log(tree);
+		return tree;
+	}
 
+	// build the HTML tree
+	function buildHtmlTree (listkey, ptree) {
+		let html='';
+
+		for (let key in ptree) {
+			if (key.startsWith('node_')) {
+				let child = ptree[key];
+			//	console.log ('key: '+key+', child.length: '+Object.keys(child).length)
+
+				let li = '<input type="checkbox" '+
+						'id="'+listkey+'_'+child.id+'" name="'+listkey+'" '+
+						'value="'+child.id+'">'+key.substr(5,);		// remove the start node_
+
+				if (child.children==0)
+					html += '<li>'+li+'</li>';
+				else {
+					html += '<li>'+li+'<ul>';
+					html += buildHtmlTree (listkey, child);
+					html += '</ul></li>';
+				}
+			}
+		}
+		return html;
+	}
+
+	// old HTML flat list
+	function buildHtmlList (listkey, list) {
+		let html='';
+		for (let ilist=0; ilist<list.length; ilist++) {
+			console.log (ilist, list[ilist]);
+			let item;
+			if (listkey=='albums')
+				item = list[ilist].relativePath;
+			else if (listkey=='tags' && list[ilist].pid==4)
+				item = list[ilist].name;
+			else
+				continue;
+
+			html += '<li><input type="checkbox" '+
+					'id="'+listkey+'_'+ilist+'" name="'+listkey+'" '+
+					'value="'+ilist+'">'+item+'</li>';
+		}
+		return html;
+	}
+	
 
 	/////// Render gallery ///////
 
@@ -511,7 +586,7 @@ $(function main() {
 
 			vars.last_thumbdate = '0000-00-00';
 			for (let irow=0; irow<data.rows.length; irow++) {
-				row = data.rows[irow];
+				let row = data.rows[irow];
 				let row_thumbDate;
 				if (row.creationDate.indexOf('T')>0)
 					row_thumbDate = row.creationDate.split('T')[0];			// remove HH:MM:SS.CCC from datetime (SQLite3)
@@ -521,8 +596,8 @@ $(function main() {
 				getDataAndThen ('/thumbnails/'+row.thumbId, {}, renderThumnail, imagekey);
 
 				// add thumbnail field to gallery 
-				//  vars.last_thumbdate is the last date. add the new + as title 
-				console.log (vars.last_thumbdate, row_thumbDate);
+				// vars.last_thumbdate is the last date. add the new + as title 
+			//	console.log (vars.last_thumbdate, row_thumbDate);
 				if (vars.last_thumbdate != row_thumbDate) {
 					vars.last_thumbdate = row_thumbDate;
 					$('#gallery-container').append('<div><h2>'+row_thumbDate+'</h2></div>');
