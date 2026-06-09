@@ -50,6 +50,8 @@ With a browser open [http://localhost:4000/](http://localhost:4000/).
 
 The base configuration allows to connect without password from a local server. Just click on the lock on right top, and you should see a list of your albums and tags.
 
+On the left, we have the search menu.
+
 - Clicking on one or more albums show thumbnails from these albums.
 - Clicking on one or more tags show thumbnails for these tags.
 - Clicking tags with albums, show thumbnails for theses tags in selected albums
@@ -64,14 +66,15 @@ The following dates formats are legal
 
 The limit field allows to speedup searches limiting the number of thumbnails retrieved from server. Il could be 20 when doing your selections (each click start a search) and then 2000 when you yant view the gallery.
 
-The gallery desig was inspired from Libre-photo.
+Albums are showed in a tree style menu. Some sections may be hidden. It would be possible to have also a tree menu for tags if you use a ":" separator in tags names. The list order for albums can be changed on the top menu.  
 
-On the gallery, a click on a photo show the original one. A click on this photo (or ESC) dismiss it.
-A small square on top left of the photo allow to select if for download. you can select many of them with this square or using Ctrl-click on a picture or Shift-click on a picture for a range.
+The gallery design was inspired from Libre-photo. 
+- On the gallery, a click on a photo show the original one.
+- A click on this photo (or ESC) dismiss it.
+- A small square on top left of the photo allow to select if for download. you can select many of them with this square or using Ctrl-click on a picture or Shift-click on a picture for a range.
+- Usefull on a cell interface, 2 buttons in the middle of the top menu allow the same functionnality. The first one activates Ctrl-click, the second one, Shift-click and the third one initiate a transfer of selected picture to your browser in a zip file.
 
-Usefull on a cell interface, 2 buttons in the middle of the top menu allow the same functionnality. The first one activates Ctrl-click, the second one, Shift-click and the third one initiate a transfer of selected picture to your browser in a zip file.
-
-Actually translations have been made just for French, but it is easy to update the translations.toml to add a new language. Please send me new translations of you add some.
+Actually translations have been made only for english and french, but it is easy to update the translations.toml to add a new language. Please send me new translations if you add some.
 
 # Configuration
 
@@ -85,8 +88,7 @@ It is possible to set local_trusted for local access.
 
 Users can be restricted on albums and tags if you want share limited photos.
 
-
-It is possible to use SSL by setting force_ssl to true. The provided key is self generated, so the browser will issue a warning at first use.
+It is possible to use SSL by setting force_ssl to true. The provided key is self generated, so the browser will issue a warning at first use. It is up to you to use a better ssl key
 
 # License
 
@@ -94,4 +96,4 @@ It is possible to use SSL by setting force_ssl to true. The provided key is self
 
 # Links
 
-Almost all icons adapted from [SVG repo](https://www.svgrepo.com/)
+Almost all icons were adapted from [SVG repo](https://www.svgrepo.com/)

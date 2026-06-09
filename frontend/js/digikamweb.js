@@ -24,6 +24,8 @@ $(function main() {
 			vars.tagslist       = [];					// selected tags
 			vars.datetimes      = {start:'', end:''};	// selected datetimes
 			vars.max_thumbnails = 20;					// selected maximum thumbnails to display. normal: 100-2000
+			vars.default_sort   = "desc";				// initial sorting order. "asc" or "desc"
+			vars.force_tags_asc = true;					// if true, tags always "asc"
 			
 			vars.selectedkeys   = [];					// images id if thumbnail in gallery
 			vars.imagekeys      = [];					// selected images
@@ -90,6 +92,8 @@ $(function main() {
 						vars.role = row.role;
 						vars.lang = row.lang;
 						vars.max_thumbnails = row.max_thumbnails? row.max_thumbnails: '';
+						vars.default_sort = row.default_sort!=null? row.default_sort.toLowerCase(): vars.default_sort;
+						vars.force_tags_asc = row.force_tags_asc!=null? row.force_tags_asc: vars.force_tags_asc;
 						i18n = row.translations;
 						setSelectionOptions('language',row.languages,row.lang);
 						setLoginoutIcon();
@@ -106,11 +110,11 @@ $(function main() {
 			postDataAndThen("/logout", { username: $('#username').val() },
 				function(res, textStatus, jqXHR) {
 					if (res.type=='table/logout') {
-						vars = {};
 						$('.menu').hide();
 						setLoginoutIcon();	
 						cleanApp ();
 						$('#message').html('');
+						vars = {};
 					}
 				});
 		}
@@ -135,13 +139,14 @@ $(function main() {
 		
 		// reset buttons
 		$('.menu input[type=checkbox]').prop('checked', false);		// checkboxes
-		$('#sort').prop('checked', false);
+		$('#sort').prop('checked', vars.default_sort.startsWith('a')? true: false);
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 
 		// make query to fill albums and tags
 		let parameters = listsParameters();
 		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
+		parameters = listsParameters(vars.force_tags_asc);
 		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
 
 		// set language option
@@ -157,7 +162,7 @@ $(function main() {
 	}
 
 	function cleanApp () {
-		$('#sort').prop('checked', false);
+		$('#sort').prop('checked', vars.default_sort.startsWith('a')? true: false);
 		$('#select-single').prop('checked', false);
 		$('#select-range').prop('checked', false);
 		
@@ -214,14 +219,15 @@ $(function main() {
 
 	// change sort order. launch search
 	$('#sort').on('change', function(event) {
-		let parameters = listsParameters();
 		// update lists order
+		let parameters = listsParameters();
 		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
+		parameters = listsParameters(vars.force_tags_asc);
 		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
 		launch_search ();
 	});
 
-	// download new translations and update html fields / messages
+	// download new translations from server and update html fields / messages
 	$( "#language").on( "change", function() {
 		getDataAndThen ('/translations/'+$(this).val(), {},
 			function (data, langkey) {
@@ -239,11 +245,18 @@ $(function main() {
 			getDataAndThen ('/save/', parameters, downloadImages);
 	});
 
+	
 	// called by change event on generated selections list
 	function onChangeListItem (listkey, id, checked, list) {
 	//	console.log (listkey+' '+id+' '+checked);
-		list[id].selected = checked;		// albums or tags
-		launch_search ();
+		if (list[id].class) {					// group button
+			list[id].open = checked;
+			update_visibility (id, list);
+		}
+		else {
+			list[id].selected = checked;		// albums or tags
+			launch_search ();
+		}
 	}
 
 	// simulate radio-button on select-single and select-range
@@ -280,6 +293,40 @@ $(function main() {
 		return datetime;
 	}
 	
+	// 	show or hide lists sections after a change
+	function update_visibility (id, list) {
+		// hide or show class
+		if (list[id].open) {
+			$('#'+list[id].html_id).prop('checked', true);
+			$('.'+list[id].class).show();
+		}
+		else {
+			$('#'+list[id].html_id).prop('checked', false);
+			$('.'+list[id].class).hide();
+		}
+		// adjust children groups
+		for (let ilist=0; ilist<list.length; ilist++) {
+			if (list[ilist].class && list[ilist].level>list[id].level) {
+				if (list[id].open) {
+					list[ilist].open = true;
+					$('#'+list[ilist].html_id).prop('checked', true);
+					$('.'+list[ilist].class).show();
+				}
+				else {		// uncheck children
+					list[ilist].open = false;
+					$('#'+list[ilist].html_id).prop('checked', false);
+					$('.'+list[ilist].class).hide();
+				}
+			}
+			if (list[ilist].class && list[ilist].level<list[id].level) {
+				if (list[id].open) {		// check parents
+					list[ilist].open = true;
+					$('#'+list[ilist].html_id).prop('checked', true);
+				}
+			}
+		}
+	}
+
 	// create parameters list for image request
 	function imagesParameters () {
 		let paras_a=[], paras_t=[], paras_d='', paras_m, paras_s, row;
@@ -302,8 +349,10 @@ $(function main() {
 	}
 	
 	// create parameters list for image request
-	function listsParameters () {
+	function listsParameters (force_asc) {
 		let paras_s = $('#sort').is(':checked')? 'ASC': 'DESC';
+		if (force_asc)
+			paras_s = 'ASC';
 		return {sort:paras_s};
 	}
 
@@ -452,25 +501,18 @@ $(function main() {
 	
 	// display albums or tags for selection
 	function selectItems (listkey, list) {
+		let html='', tree;
 		
 	//	console.log (list);
-
-		let use_tree = true;
-
-		let html='';
-		
-		if (use_tree) {
-			let tree = characterizeTree (listkey, list);
-			html = '<ul>'+ buildHtmlTree (listkey, tree) +'</ul>';
-		}
-		else {
-			html = '<ul>'+ buildHtmlList (listkey, list) +'</ul>';
-		}
-	
+		tree = characterizeTree (listkey, list);
+	//	console.log(tree);
+		html = '<ul>'+ buildHtmlTree (listkey,list,tree,0,'') +'</ul>';
 	//	console.log (html);
 			
 		$('#'+listkey+'-list').html(html);
-
+		
+		update_visibility (tree[Object.keys(tree)[0]].id, list);
+		
 		// hide language titles
 		selectLanguage(vars.lang);
 	
@@ -487,7 +529,8 @@ $(function main() {
 	// get the structure of the tree
 	function characterizeTree (listkey, list) {
 		let tree={}, ptree;
-		for (let ilist=0; ilist<list.length; ilist++) {
+		let ilist, ipart, item;
+		for (ilist=0; ilist<list.length; ilist++) {
 			
 			if (listkey=='albums')
 				item = list[ilist].relativePath;
@@ -495,30 +538,41 @@ $(function main() {
 				item = list[ilist].name;
 			else
 				continue;
-			
-			let parts = item.split('/');
-			let firstpart = parts.length>1? 1: 0;		// with albums, first part is always ""
-			for (let ipart=firstpart, ptree=tree; ipart<parts.length; ipart++) {
-				node = 'node_'+parts[ipart];
-				if (!ptree[node]) {			
+			let parts;
+			if (listkey=='albums') {
+				parts = item.split('/');
+				if (parts.length==2 && parts[0]=='' && parts[1]=='') {
+					parts = [''];			// "/"" created 2 parts
+				}
+			}
+			else {
+				item = ':'+item;						// add a level to users to allow hide groups
+				parts = item.split(':');
+				if (parts.length>1)
+					parts[1] = parts[1].trim();
+			}
+			// create nodes for all items on path. sometime parents items may come later in list
+			for (ipart=0, ptree=tree; ipart<parts.length; ipart++) {
+				let node='node_'+parts[ipart];
+				if (!ptree[node]) {						// create the node as node_{item_name}
 					let id = ilist;						// id is the index of item in vars.albumslist ot vars.tagslist
 					if (ipart!=parts.length-1)
-						id = -1;
-					ptree[node] = {id:id,children:0};	// for parents create fake ids
+						id = -1;						// don't set id for parents in chain
+					ptree[node] = {id:id,children:0};
 				}
-				else if (ipart==parts.length-1)
-					ptree[node].id = ilist;				// update id if parent came after chlidren
-				else if (ipart==parts.length-2)
-					++ptree[node].children;				// update count just for the last parent
+				else if (ipart==parts.length-1 && ptree[node].id<0)		// parents items created by children
+					ptree[node].id = ilist;				// update id of a parent part in case it came after chlidren
+				if (ipart==parts.length-2) {			// parent part
+					++ptree[node].children;				// update count for the last parent
+				}
 				ptree = ptree[node]
 			}
 		}
-	//	console.log(tree);
 		return tree;
 	}
 
 	// build the HTML tree
-	function buildHtmlTree (listkey, ptree) {
+	function buildHtmlTree (listkey, list, ptree, level, classes) {
 		let html='';
 
 		for (let key in ptree) {
@@ -526,42 +580,81 @@ $(function main() {
 				let child = ptree[key];
 			//	console.log ('key: '+key+', child.length: '+Object.keys(child).length)
 
+				if (child.id<0) {
+					// a group name for persons (group: name) have been specified
+					// create a fake tag entry to control children
+					child.id = list.length;
+					list[list.length] = {};						
+				}
+				
+				let effectiveclasses;
+				if (child.children>0)			// no class to hide. just different style
+					effectiveclasses = 'group ';
+				else
+					effectiveclasses = 'child '+classes;
+					
+				list[child.id].html_id = listkey+'_'+child.id;
+				list[child.id].level = level;
+
 				let li = '<input type="checkbox" '+
 						'id="'+listkey+'_'+child.id+'" name="'+listkey+'" '+
-						'value="'+child.id+'">'+key.substr(5,);		// remove the start node_
+						'class="'+effectiveclasses+'" ' +
+						'value="'+child.id+'">'+key.substr(5,);
 
 				if (child.children==0)
-					html += '<li>'+li+'</li>';
+					html += '<li class="'+effectiveclasses+'">'+li+'</li>';
 				else {
-					html += '<li>'+li+'<ul>';
-					html += buildHtmlTree (listkey, child);
+					let group_class = listkey+'_'+child.id;	// define a class to hide children
+					list[child.id].class = group_class;
+					list[child.id].open = true;
+					html += '<li class="'+effectiveclasses+'">'+li+'/'+'<ul>';
+					html += buildHtmlTree (listkey, list, child, level+1, classes+' '+group_class);
 					html += '</ul></li>';
 				}
 			}
 		}
 		return html;
 	}
-
-	// old HTML flat list
-	function buildHtmlList (listkey, list) {
-		let html='';
-		for (let ilist=0; ilist<list.length; ilist++) {
-			console.log (ilist, list[ilist]);
-			let item;
-			if (listkey=='albums')
-				item = list[ilist].relativePath;
-			else if (listkey=='tags' && list[ilist].pid==4)
-				item = list[ilist].name;
-			else
-				continue;
-
-			html += '<li><input type="checkbox" '+
-					'id="'+listkey+'_'+ilist+'" name="'+listkey+'" '+
-					'value="'+ilist+'">'+item+'</li>';
-		}
-		return html;
-	}
 	
+	// 	show or hide lists sections after a change
+	function update_visibility (id, list) {
+		// show or hide class
+		if (list[id].open) {
+			$('#'+list[id].html_id).prop('checked', true);
+			$('.'+list[id].class).show();
+		}
+		else {
+			$('#'+list[id].html_id).prop('checked', false);
+			$('.'+list[id].class).hide();
+		}
+		// adjust children
+		for (let ilist=0; ilist<list.length; ilist++) {
+			if (list[id].open) {
+				if (list[ilist].class && list[ilist].level>list[id].level) {
+					// check group children
+					list[ilist].open = true;
+					$('#'+list[ilist].html_id).prop('checked', true);
+					$('.'+list[ilist].class).show();
+				}
+				if (list[ilist].class && list[ilist].level<list[id].level) {
+					// check parents
+					list[ilist].open = true;
+					$('#'+list[ilist].html_id).prop('checked', true);
+				}
+			}
+			else {
+				if (!list[ilist].class || list[ilist].level>list[id].level) {
+					// uncheck all children
+					if (list[ilist].open)
+						list[ilist].open = false;
+					list[ilist].selected = false;
+					$('#'+list[ilist].html_id).prop('checked', false);
+					$('.'+list[ilist].class).hide();
+				}
+			}
+		}
+	}
+
 
 	/////// Render gallery ///////
 

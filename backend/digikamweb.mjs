@@ -233,9 +233,10 @@ app.post('/login', function(req, res) {
 		session.lang = config.users[iuser].language;
 		session.state = 'loggedIn';
 
-		respond_json(res, {type:'table/login', rows:[{state:session.state, username:session.username, role:session.role,
-						   max_thumbnails:config.http.thumbnails_default, 
-						   lang:session.lang, languages:config.server.languages, translations:i18n[session.lang]}]});
+		respond_json(res, {	type:'table/login', rows:[{state:session.state, username:session.username,
+						   	role:session.role, max_thumbnails:config.http.thumbnails_default,
+							default_sort:config.http.default_sort, force_tags_asc:config.http.force_tags_asc, 
+							lang:session.lang, languages:config.server.languages, translations:i18n[session.lang]}]});
 		// add session to server sessions list
 		sessions[session.key] = {state: session.state, user:config.users[iuser]};
 		printwlog ('??? login:  sessions('+Object.keys(sessions).length+'): +++', session.key);
@@ -747,6 +748,8 @@ function where_or (column, list) {
 	let subwhere='', verb='';
 	subwhere += '(';
 	for (let item in list) {
+		if (list[item].length==0)
+			continue;
 		if (list[item].indexOf('_') > 0)
 			list[item] = list[item].split('_')[1];		// format thumbnailId_imageId_date
 		subwhere += verb + column + '=' + list[item];
