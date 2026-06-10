@@ -309,7 +309,8 @@ small {
 
 .menu .group [type=checkbox] {
 	position: relative;
-/*	top: 0.3rem; */
+	vertical-align: middle;
+	margin-top: 0.2rem;
 	width: 1.5em;
 	height: 1.5em;
 	appearance: none;

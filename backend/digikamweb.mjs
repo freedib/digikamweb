@@ -583,8 +583,9 @@ function db_close_sqlite3 (db) {
 
 function db_query_sqlite3 (db, sql) {
 	return new Promise ((resolve, reject) => {
-		let nicesql = sql.match(/(.{1,100})/g).join('\n    + ');
-		printlog ('... '+nicesql);
+		printlog ('... '+sql);
+	//	let nicesql = sql.match(/(.{1,100})/g).join('\n    + ');
+	//	printlog ('... '+nicesql);
 
 		try {
 			resolve (db.prepare(sql).all());
@@ -651,8 +652,10 @@ function db_close_mariadb (db) {
 
 function db_query_mariadb (db, sql) {
 	return new Promise ((resolve, reject) => {
-		var nicesql = sql.match(/(.{1,100})/g).join('\n    + ');
-		printlog ('... '+nicesql);
+		printlog ('... '+sql);
+	//	var nicesql = sql.match(/(.{1,100})/g).join('\n    + ');
+	//	printlog ('... '+nicesql);
+	
 		db.query(sql)
 			.then ((rows) => {
 				resolve(rows);
@@ -927,7 +930,7 @@ function read_tags () {
 }
 
 
-// get restricted albumsid for a user
+// get restricted albumsid for a user after a login
 function update_restricted_albums (sessionkey) {
 	let user = sessions[sessionkey].user;
 
@@ -937,13 +940,16 @@ function update_restricted_albums (sessionkey) {
 		user.albumsid = [];
 		for (let ira=0; ira<user.restrict_albums.length; ira++) {
 			let ura = albums_list.find(ra => ra && ra.relativePath==user.restrict_albums[ira]);
-			user.albumsid.push(ura.id);
+			if (ura)
+				user.albumsid.push(ura.id);
+			else
+				console.error ('*** invalid restricted_album: '+user.restrict_albums[ira]);
 		}
 		printwlog ('update_restricted_albums: user.albumsid=', user.albumsid);
 	}
 }
 
-// get restricted tagsid for a user
+// get restricted tagsid for a user after a login
 // expand '*' wildcard
 function update_restricted_tags (sessionkey) {
 	let user = sessions[sessionkey].user;
@@ -959,7 +965,7 @@ function update_restricted_tags (sessionkey) {
 			else if ((istar = user.restrict_tags[irt].indexOf('*')) >= 0) {
 				let starttag = user.restrict_tags[irt].substr(0,istar); 
 				for (let it=0; it<tags_list.length; it++) {
-					if (tags_list[it].name.startsWith(starttag))
+					if (tags_list[it] && tags_list[it].name.startsWith(starttag))
 						user.tagsid.push(tags_list[it].id);
 				}
 			}
@@ -968,18 +974,18 @@ function update_restricted_tags (sessionkey) {
 	}
 }
 
-// if user.restrict_albums constrict album list sent to browser 
+// if user.restrict_albums, constrict album list sent to browser 
 function filter_albums (sessionkey,	rows) {
 	let user = sessions[sessionkey].user;
-	printwlog ('filter_albums:', user.restrict_albums, user.albumsid);
-	
 	if (user.albumsid && user.albumsid.length>0) {
+		printwlog('??? filter_albums: #rows before',rows.length);
 		let user_rows = [];
 		for (let irow=0; irow<rows.length; irow++) {
-			if (user.albumsid.indexOf( rows[irow].id ) >= 0)
+			if (user.albumsid.indexOf(rows[irow].id) >= 0)
 				user_rows.push(rows[irow]);
 		}
 		rows = user_rows;
+		printwlog('??? filter_albums: #rows after',rows.length);
 	}
 	return rows;
 }
@@ -987,16 +993,15 @@ function filter_albums (sessionkey,	rows) {
 // if user.restrict_tags constrict tags list sent to browser 
 function filter_tags (sessionkey, rows) {
 	let user = sessions[sessionkey].user;
-	printwlog ('filter_tags:', user.restrict_tags, user.tagsid);
-	
-	printwlog ('update_restricted_tags: user.tagsid=', user.tagsid);
 	if (user.tagsid && user.tagsid.length>0) {
+		printwlog('??? filter_tags: #rows before',rows.length);
 		let user_rows = [];
 		for (let irow=0; irow<rows.length; irow++) {
 			if (user.tagsid.indexOf( rows[irow].id ) >= 0)
 				user_rows.push(rows[irow]);
 		}
 		rows = user_rows;
+		printwlog('??? filter_tags: #rows after',rows.length);
 	}
 	return rows;
 }

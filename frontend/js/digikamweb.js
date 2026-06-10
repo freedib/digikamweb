@@ -511,7 +511,7 @@ $(function main() {
 			
 		$('#'+listkey+'-list').html(html);
 		
-		update_visibility (tree[Object.keys(tree)[0]].id, list);
+		update_visibility (tree[Object.keys(tree)[0]].index, list);
 		
 		// hide language titles
 		selectLanguage(vars.lang);
@@ -531,7 +531,6 @@ $(function main() {
 		let tree={}, ptree;
 		let ilist, ipart, item;
 		for (ilist=0; ilist<list.length; ilist++) {
-			
 			if (listkey=='albums')
 				item = list[ilist].relativePath;
 			else if (listkey=='tags' && list[ilist].pid==4)
@@ -542,27 +541,27 @@ $(function main() {
 			if (listkey=='albums') {
 				parts = item.split('/');
 				if (parts.length==2 && parts[0]=='' && parts[1]=='') {
-					parts = [''];			// "/"" created 2 parts
+					parts = [''];						// "/" created 2 parts
 				}
 			}
 			else {
 				item = ':'+item;						// add a level to users to allow hide groups
 				parts = item.split(':');
-				if (parts.length>1)
-					parts[1] = parts[1].trim();
+				for (let ip=0; ip<parts.length; ip++)
+					parts[ip] = parts[ip].trim();
 			}
 			// create nodes for all items on path. sometime parents items may come later in list
 			for (ipart=0, ptree=tree; ipart<parts.length; ipart++) {
 				let node='node_'+parts[ipart];
 				if (!ptree[node]) {						// create the node as node_{item_name}
-					let id = ilist;						// id is the index of item in vars.albumslist ot vars.tagslist
+					let index = ilist;						// id is the index of item in vars.albumslist ot vars.tagslist
 					if (ipart!=parts.length-1)
-						id = -1;						// don't set id for parents in chain
-					ptree[node] = {id:id,children:0};
+						index = -1;						// don't set id for parents in chain
+					ptree[node] = {index:index,children:0};
 				}
-				else if (ipart==parts.length-1 && ptree[node].id<0)		// parents items created by children
-					ptree[node].id = ilist;				// update id of a parent part in case it came after chlidren
-				if (ipart==parts.length-2) {			// parent part
+				else if (ipart==parts.length-1 && ptree[node].index<0)		// parents items created by children
+					ptree[node].index = ilist;				// update id of a parent part in case it came after chlidren
+				if (ipart<parts.length-1) {			// parent part
 					++ptree[node].children;				// update count for the last parent
 				}
 				ptree = ptree[node]
@@ -572,43 +571,43 @@ $(function main() {
 	}
 
 	// build the HTML tree
-	function buildHtmlTree (listkey, list, ptree, level, classes) {
+	function buildHtmlTree (listkey, list, tree, level, classes) {
 		let html='';
 
-		for (let key in ptree) {
+		for (let key in tree) {
 			if (key.startsWith('node_')) {
-				let child = ptree[key];
-			//	console.log ('key: '+key+', child.length: '+Object.keys(child).length)
+				let node = tree[key];
 
-				if (child.id<0) {
+				if (node.index<0) {
 					// a group name for persons (group: name) have been specified
 					// create a fake tag entry to control children
-					child.id = list.length;
+					node.index = list.length;
 					list[list.length] = {};						
 				}
 				
 				let effectiveclasses;
-				if (child.children>0)			// no class to hide. just different style
+				if (node.children>0)			// no class to hide. just different style
 					effectiveclasses = 'group ';
 				else
 					effectiveclasses = 'child '+classes;
 					
-				list[child.id].html_id = listkey+'_'+child.id;
-				list[child.id].level = level;
+				list[node.index].html_id = listkey+'_'+node.index;
+				list[node.index].level = level;
 
 				let li = '<input type="checkbox" '+
-						'id="'+listkey+'_'+child.id+'" name="'+listkey+'" '+
+						'id="'+listkey+'_'+node.index+'" name="'+listkey+'" '+
 						'class="'+effectiveclasses+'" ' +
-						'value="'+child.id+'">'+key.substr(5,);
+						'value="'+node.index+'">'+key.substr(5,);
 
-				if (child.children==0)
+				if (node.children==0)
 					html += '<li class="'+effectiveclasses+'">'+li+'</li>';
 				else {
-					let group_class = listkey+'_'+child.id;	// define a class to hide children
-					list[child.id].class = group_class;
-					list[child.id].open = true;
-					html += '<li class="'+effectiveclasses+'">'+li+'/'+'<ul>';
-					html += buildHtmlTree (listkey, list, child, level+1, classes+' '+group_class);
+					let group_class = listkey+'_'+node.index;	// define a class to hide children
+					list[node.index].class = group_class;
+					list[node.index].open = false;				// groups are initially closed
+					let symbol = listkey=='albums'? '/': ':';
+					html += '<li class="'+effectiveclasses+'">'+li+symbol+'<ul>';
+					html += buildHtmlTree (listkey, list, node, level+1, classes+' '+group_class);
 					html += '</ul></li>';
 				}
 			}
