@@ -95,7 +95,7 @@ $(function main() {
 						vars.default_sort = row.default_sort!=null? row.default_sort.toLowerCase(): vars.default_sort;
 						vars.force_tags_asc = row.force_tags_asc!=null? row.force_tags_asc: vars.force_tags_asc;
 						i18n = row.translations;
-						setSelectionOptions('language',row.languages,row.lang);
+						setSelectOptions ('language', row.languages, row.lang);		// set languages liste
 						setLoginoutIcon();
 						initializeApp ();
 					}
@@ -119,6 +119,23 @@ $(function main() {
 				});
 		}
 	}
+
+	// set option list of a <select> 
+	function setSelectOptions (fieldid, options, defaultvalue) {
+		let html = '<select id="'+fieldid+'">';
+		var optionslength = options.length;
+		for (var opt = 0; opt < optionslength; opt++) {
+			if (options[opt]==defaultvalue)
+				html += '<option selected>'+m(options[opt])+'</option>';
+			else
+				html += '<option>'+m(options[opt])+'</option>';
+		}
+		html += '</select>';
+		
+		$('#language').html(html);
+	}
+
+
 
 	// adjust login/logout button image
 	function setLoginoutIcon() {
@@ -145,9 +162,9 @@ $(function main() {
 
 		// make query to fill albums and tags
 		let parameters = listsParameters();
-		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
+		getDataAndThen ('/albums/', parameters, renderMenuList, 'albums');
 		parameters = listsParameters(vars.force_tags_asc);
-		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
+		getDataAndThen ('/tags/', parameters, renderMenuList, 'tags');
 
 		// set language option
 		$('#opt_lang_'+vars.lang).prop('checked', true);
@@ -214,17 +231,17 @@ $(function main() {
 			vars.datetimes.end = $(this).val();
 		else if ($(this).prop('id') == 'max_thumbnails')
 			vars.max_thumbnails = $(this).val();
-		launch_search ();
+		launchSearch ();
 	});
 
 	// change sort order. launch search
 	$('#sort').on('change', function(event) {
-		// update lists order
-		let parameters = listsParameters();
-		getDataAndThen ('/albums/', parameters, updateSelectionList, 'albums');
-		parameters = listsParameters(vars.force_tags_asc);
-		getDataAndThen ('/tags/', parameters, updateSelectionList, 'tags');
-		launch_search ();
+		// update lists order (only albums)
+		saveListChecked ('albums', vars.albumslist);
+		vars.albumslist.reverse();
+		createMenuList ('albums', vars.albumslist);
+		restoreListChecked ('albums', vars.albumslist);
+		launchSearch ();
 	});
 
 	// download new translations from server and update html fields / messages
@@ -246,19 +263,6 @@ $(function main() {
 	});
 
 	
-	// called by change event on generated selections list
-	function onChangeListItem (listkey, id, checked, list) {
-	//	console.log (listkey+' '+id+' '+checked);
-		if (list[id].class) {					// group button
-			list[id].open = checked;
-			update_visibility (id, list);
-		}
-		else {
-			list[id].selected = checked;		// albums or tags
-			launch_search ();
-		}
-	}
-
 	// simulate radio-button on select-single and select-range
 	$("#select-single").on("change", function() {
 		$('#select-range').prop('checked', false);
@@ -269,7 +273,7 @@ $(function main() {
 
 
 	// launch a search query to the server
-	function launch_search () {
+	function launchSearch () {
 		let parameters = imagesParameters();
 		if (parameters)
 			getDataAndThen ('/search/', parameters, renderGallery);
@@ -279,7 +283,7 @@ $(function main() {
 	/////// Navigation utilities ///////
 
 	
-	function extract_date (datetime_string) {
+	function extractDate (datetime_string) {
 		let datetime = datetime_string, index;
 		datetime = datetime.replaceAll ('-','');			// in date
 		datetime = datetime.replaceAll (':','');			// in hour
@@ -293,58 +297,22 @@ $(function main() {
 		return datetime;
 	}
 	
-	// 	show or hide lists sections after a change
-	function update_visibility (id, list) {
-		// hide or show class
-		if (list[id].open) {
-			$('#'+list[id].html_id).prop('checked', true);
-			$('.'+list[id].class).show();
-		}
-		else {
-			$('#'+list[id].html_id).prop('checked', false);
-			$('.'+list[id].class).hide();
-		}
-		// adjust children groups
-		for (let ilist=0; ilist<list.length; ilist++) {
-			if (list[ilist].class && list[ilist].level>list[id].level) {
-				if (list[id].open) {
-					list[ilist].open = true;
-					$('#'+list[ilist].html_id).prop('checked', true);
-					$('.'+list[ilist].class).show();
-				}
-				else {		// uncheck children
-					list[ilist].open = false;
-					$('#'+list[ilist].html_id).prop('checked', false);
-					$('.'+list[ilist].class).hide();
-				}
-			}
-			if (list[ilist].class && list[ilist].level<list[id].level) {
-				if (list[id].open) {		// check parents
-					list[ilist].open = true;
-					$('#'+list[ilist].html_id).prop('checked', true);
-				}
-			}
-		}
-	}
-
 	// create parameters list for image request
 	function imagesParameters () {
-		let paras_a=[], paras_t=[], paras_d='', paras_m, paras_s, row;
-		vars.albumslist.forEach(row => {
-			if (row.selected)
-				paras_a.push(row.id);
+		let paras_a=[], paras_t=[];
+		getListChecked('albums').forEach(index => {
+			paras_a.push(vars.albumslist[index].id);
 		});
-		vars.tagslist.forEach(row => {
-			if (row.selected)
-				paras_t.push(row.id);
+		getListChecked('tags').forEach(index => {
+			paras_t.push(vars.tagslist[index].id);
 		});
-		let ds = extract_date (vars.datetimes.start);
-		let de = extract_date (vars.datetimes.end);
+		let ds = extractDate (vars.datetimes.start);
+		let de = extractDate (vars.datetimes.end);
 		if (ds==null || de==null)
 			return null;
-		paras_d = [ds, de];
-		paras_m = vars.max_thumbnails;
-		paras_s = $('#sort').is(':checked')? 'ASC': 'DESC';
+		let paras_d = [ds, de];
+		let paras_m = vars.max_thumbnails;
+		let paras_s = $('#sort').is(':checked')? 'ASC': 'DESC';
 		return {albumsid:paras_a, tagsid:paras_t, datetimes:paras_d, max_thumbnails:paras_m, sort:paras_s};
 	}
 	
@@ -460,49 +428,25 @@ $(function main() {
 	
 	
 	/////// Next steps ///////
-	
 
-	// reveive albums and tags data from server
-	function updateSelectionList (data, datakey) {
-		let listobj;
-
-		if (datakey==='albums') {
-			listobj = vars.albumslist;
-		}
-		else
-			listobj = vars.tagslist;
 		
-		while(listobj.length > 0)		// empty listobj
+	// receive albums and tags data from server
+	function renderMenuList (data, datakey) {
+		let listobj = datakey==='albums'? vars.albumslist: vars.tagslist;
+		while(listobj.length > 0)			// empty listobj
 		    listobj.pop();
-
 		for (let irow=0; irow<data.rows.length; irow++) {
-			var row = data.rows[irow];
+			var row = data.rows[irow];		// copy received row
 			row.selected = false;
 			listobj.push(row);
 		}
-		
-		selectItems (datakey, listobj);
+		createMenuList (datakey, listobj);	// create list in menu
 	}
 	
 
-	function setSelectionOptions (fieldid, options, defaultvalue) {
-		let html = '<select id="'+fieldid+'">';
-		var optionslength = options.length;
-		for (var opt = 0; opt < optionslength; opt++) {
-			if (options[opt]==defaultvalue)
-				html += '<option selected>'+m(options[opt])+'</option>';
-			else
-				html += '<option>'+m(options[opt])+'</option>';
-		}
-		html += '</select>';
-		
-		$('#language').html(html);
-	}
-	
 	// display albums or tags for selection
-	function selectItems (listkey, list) {
+	function createMenuList (listkey, list) {
 		let html='', tree;
-		
 	//	console.log (list);
 		tree = characterizeTree (listkey, list);
 	//	console.log(tree);
@@ -511,22 +455,27 @@ $(function main() {
 			
 		$('#'+listkey+'-list').html(html);
 		
-		update_visibility (tree[Object.keys(tree)[0]].index, list);
+		let top_element = $('#'+listkey+'-'+tree[Object.keys(tree)[0]].index);
+		updateMenuListVisibility (top_element);
 		
-		// hide language titles
-		selectLanguage(vars.lang);
-	
 		// set on change function
 		for (let index=0; index<list.length; index++) {
-			if (list[index].selected) 
-				$('#'+listkey+'_'+index).prop('checked', true);
-			$('#'+listkey+'_'+index).on('change', function() {
-				onChangeListItem ($(this).prop("name"), $(this).val(), $(this).is(':checked'), list);
+			$('#'+listkey+'-'+index).on('change', function() {
+			//	let listkey = $(this).prop("name");
+			//	let index =  $(this).val();
+				let checked =  $(this).is(':checked');
+				if ($(this).next('ul').find('input').length > 0) {	// group button
+					updateMenuListVisibility (this);
+					if (!checked)
+						launchSearch ();		// launch a search to reflect unchecked items
+				}
+				else
+					launchSearch ();
 			});
 		}
 	}
 	
-	// get the structure of the tree
+	// build a tree a all albums or tags paths
 	function characterizeTree (listkey, list) {
 		let tree={}, ptree;
 		let ilist, ipart, item;
@@ -554,14 +503,14 @@ $(function main() {
 			for (ipart=0, ptree=tree; ipart<parts.length; ipart++) {
 				let node='node_'+parts[ipart];
 				if (!ptree[node]) {						// create the node as node_{item_name}
-					let index = ilist;						// id is the index of item in vars.albumslist ot vars.tagslist
+					let index = ilist;					// index of item in vars.albumslist ot vars.tagslist
 					if (ipart!=parts.length-1)
-						index = -1;						// don't set id for parents in chain
+						index = -1;						// don't set index for parents in chain
 					ptree[node] = {index:index,children:0};
 				}
 				else if (ipart==parts.length-1 && ptree[node].index<0)		// parents items created by children
-					ptree[node].index = ilist;				// update id of a parent part in case it came after chlidren
-				if (ipart<parts.length-1) {			// parent part
+					ptree[node].index = ilist;			// update index of a parent part in case it came after chlidren
+				if (ipart==parts.length-2) {			// if group
 					++ptree[node].children;				// update count for the last parent
 				}
 				ptree = ptree[node]
@@ -571,7 +520,7 @@ $(function main() {
 	}
 
 	// build the HTML tree
-	function buildHtmlTree (listkey, list, tree, level, classes) {
+	function buildHtmlTree (listkey, list, tree, classes) {
 		let html='';
 
 		for (let key in tree) {
@@ -586,28 +535,23 @@ $(function main() {
 				}
 				
 				let effectiveclasses;
-				if (node.children>0)			// no class to hide. just different style
+				if (node.children>0)			// set checkbox style
 					effectiveclasses = 'group ';
 				else
 					effectiveclasses = 'child '+classes;
 					
-				list[node.index].html_id = listkey+'_'+node.index;
-				list[node.index].level = level;
-
 				let li = '<input type="checkbox" '+
-						'id="'+listkey+'_'+node.index+'" name="'+listkey+'" '+
+						'id="'+listkey+'-'+node.index+'" name="'+listkey+'" '+
 						'class="'+effectiveclasses+'" ' +
 						'value="'+node.index+'">'+key.substr(5,);
 
 				if (node.children==0)
 					html += '<li class="'+effectiveclasses+'">'+li+'</li>';
 				else {
-					let group_class = listkey+'_'+node.index;	// define a class to hide children
-					list[node.index].class = group_class;
-					list[node.index].open = false;				// groups are initially closed
+					let group_class = listkey+'-'+node.index;	// define a class to hide children
 					let symbol = listkey=='albums'? '/': ':';
 					html += '<li class="'+effectiveclasses+'">'+li+symbol+'<ul>';
-					html += buildHtmlTree (listkey, list, node, level+1, classes+' '+group_class);
+					html += buildHtmlTree (listkey, list, node, classes+' '+group_class);
 					html += '</ul></li>';
 				}
 			}
@@ -615,43 +559,56 @@ $(function main() {
 		return html;
 	}
 	
+	// find items checked in album and tags lists
+	function getListChecked (listkey) {
+		var values=[];
+		let htmlkey = listkey+'-list';
+		let items = $('#'+htmlkey).find('.child:checkbox:checked').filter(function(){
+			values.push($(this).val());
+		});
+		return values;
+	}
+
+	
+	// save selected items in list to restore after a sort
+	function saveListChecked (listkey, list) {
+		let itemslist = getListChecked (listkey);
+		for (let index=0; index<list.length; index++)
+			list[index].selected = false;
+		for (let item=0; item<itemslist.length; item++)
+			list[itemslist[item]].selected = true;
+	}
+
+	// set check again items that were checked before a sort
+	function restoreListChecked (listkey, list) {
+		for (let index=0; index<list.length; index++) {
+			if (list[index].selected) {
+				let element = $('#'+listkey+'-'+index);
+				let count=2;
+				do {
+					element.prop('checked', true);
+					if (count-- > 0)				// open parent group but check all parents
+						updateMenuListVisibility (element);
+					element = $(element).parent().parent().prev('input');
+				} while (element.length > 0);
+			}
+		}
+	}
+
 	// 	show or hide lists sections after a change
-	function update_visibility (id, list) {
-		// show or hide class
-		if (list[id].open) {
-			$('#'+list[id].html_id).prop('checked', true);
-			$('.'+list[id].class).show();
+	function updateMenuListVisibility (element) {
+		// hide or show class
+		if ($(element).is(':checked')) {
+			$('.'+$(element).prop('id')).show();							// children have parent id as class. show them
+			$(element).next('ul').find('input').filter(function() {			// open all children groups
+			         return $(this).hasClass('group')
+			     }).prop('checked', true);
 		}
 		else {
-			$('#'+list[id].html_id).prop('checked', false);
-			$('.'+list[id].class).hide();
+			$(element).next('ul').find('input').prop('checked', false);		// uncheck children
+			$('.'+$(element).prop('id')).hide();							// children have parent id as class. hide them
 		}
-		// adjust children
-		for (let ilist=0; ilist<list.length; ilist++) {
-			if (list[id].open) {
-				if (list[ilist].class && list[ilist].level>list[id].level) {
-					// check group children
-					list[ilist].open = true;
-					$('#'+list[ilist].html_id).prop('checked', true);
-					$('.'+list[ilist].class).show();
-				}
-				if (list[ilist].class && list[ilist].level<list[id].level) {
-					// check parents
-					list[ilist].open = true;
-					$('#'+list[ilist].html_id).prop('checked', true);
-				}
-			}
-			else {
-				if (!list[ilist].class || list[ilist].level>list[id].level) {
-					// uncheck all children
-					if (list[ilist].open)
-						list[ilist].open = false;
-					list[ilist].selected = false;
-					$('#'+list[ilist].html_id).prop('checked', false);
-					$('.'+list[ilist].class).hide();
-				}
-			}
-		}
+		$(element).parent().parent().prev('input').prop('checked', true);
 	}
 
 
@@ -758,7 +715,7 @@ $(function main() {
 	}
 
 	
-	// selection logic. add/reemove keys to vars.selectedkeys
+	// selection logic. add/remove image keys to vars.selectedkeys
 	// update checkboxes state
 	function updateImagesSelection (source, imagekey) {
 
