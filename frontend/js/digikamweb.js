@@ -233,12 +233,17 @@ $(function main() {
 			vars.max_thumbnails = $(this).val();
 		launchSearch ();
 	});
-
+	
 	// change sort order. launch search
 	$('#sort').on('change', function(event) {
 		// update lists order (only albums)
 		saveListChecked ('albums', vars.albumslist);
-		vars.albumslist.reverse();
+		
+		if ($('#sort').is(':checked'))
+			vars.albumslist.sort((a,b) => b>a?-1:1);		// ASC
+		else
+			vars.albumslist.sort((a,b) => b>a?1:-1);		// DESC
+		
 		createMenuList ('albums', vars.albumslist);
 		restoreListChecked ('albums', vars.albumslist);
 		launchSearch ();
@@ -266,9 +271,13 @@ $(function main() {
 	// simulate radio-button on select-single and select-range
 	$("#select-single").on("change", function() {
 		$('#select-range').prop('checked', false);
+		if (!$('#select-single').is(':checked') && !$('#select-range').is(':checked'))
+			updateImagesSelection ('clear');
 	});
 	$("#select-range").on("change", function() {
 		$('#select-single').prop('checked', false);
+	if (!$('#select-single').is(':checked') && !$('#select-range').is(':checked'))
+		updateImagesSelection ('clear');
 	});
 
 
@@ -450,7 +459,7 @@ $(function main() {
 	//	console.log (list);
 		tree = characterizeTree (listkey, list);
 	//	console.log(tree);
-		html = '<ul>'+ buildHtmlTree (listkey,list,tree,0,'') +'</ul>';
+		html = '<ul>'+ buildHtmlTree (listkey,list,tree,'') +'</ul>';
 	//	console.log (html);
 			
 		$('#'+listkey+'-list').html(html);
@@ -458,18 +467,18 @@ $(function main() {
 		let top_element = $('#'+listkey+'-'+tree[Object.keys(tree)[0]].index);
 		updateMenuListVisibility (top_element);
 		
-		// set on change function
+		// set on click function
 		for (let index=0; index<list.length; index++) {
-			$('#'+listkey+'-'+index).on('change', function() {
+			$('#'+listkey+'-'+index).on('click', function(event) {
 			//	let listkey = $(this).prop("name");
 			//	let index =  $(this).val();
 				let checked =  $(this).is(':checked');
 				if ($(this).next('ul').find('input').length > 0) {	// group button
-					updateMenuListVisibility (this);
+					updateMenuListVisibility (this, event.shiftKey);
 					if (!checked)
 						launchSearch ();		// launch a search to reflect unchecked items
 				}
-				else
+				else							// album button
 					launchSearch ();
 			});
 		}
@@ -510,8 +519,9 @@ $(function main() {
 				}
 				else if (ipart==parts.length-1 && ptree[node].index<0)		// parents items created by children
 					ptree[node].index = ilist;			// update index of a parent part in case it came after chlidren
-				if (ipart==parts.length-2) {			// if group
+				if (ipart<=parts.length-2) {			// if group
 					++ptree[node].children;				// update count for the last parent
+														// not a real children count. means at least one children
 				}
 				ptree = ptree[node]
 			}
@@ -536,7 +546,7 @@ $(function main() {
 				
 				let effectiveclasses;
 				if (node.children>0)			// set checkbox style
-					effectiveclasses = 'group ';
+					effectiveclasses = 'group '+classes;
 				else
 					effectiveclasses = 'child '+classes;
 					
@@ -596,17 +606,24 @@ $(function main() {
 	}
 
 	// 	show or hide lists sections after a change
-	function updateMenuListVisibility (element) {
+	function updateMenuListVisibility (element, shiftkey) {
 		// hide or show class
 		if ($(element).is(':checked')) {
-			$('.'+$(element).prop('id')).show();							// children have parent id as class. show them
-			$(element).next('ul').find('input').filter(function() {			// open all children groups
-			         return $(this).hasClass('group')
-			     }).prop('checked', true);
+			if (shiftkey) {														// open all submenus
+				$('.'+$(element).prop('id')).show();							// children have parent id as class. show them
+				$(element).next('ul').find('input').filter(function() {			// open all children groups
+					return $(this).hasClass('group')
+				}).prop('checked', true);
+			}
+			else {																// open just first level of children
+			//	$(element).next('ul').show();
+				$(element).next('ul').children('li').show();
+				$(element).next('ul').children('li').children('input').show();
+			}
 		}
 		else {
-			$(element).next('ul').find('input').prop('checked', false);		// uncheck children
-			$('.'+$(element).prop('id')).hide();							// children have parent id as class. hide them
+			$(element).next('ul').find('input').prop('checked', false);			// uncheck children checkbox
+			$('.'+$(element).prop('id')).hide();								// children have parent id as class. hide them
 		}
 		$(element).parent().parent().prev('input').prop('checked', true);
 	}
@@ -663,6 +680,8 @@ $(function main() {
 				html +=     '<div id="tbn_'+imagekey+'" class="thumbnail-name"><small>'+row.name+'</small></div>'
 				html += '</div>'
 				$('#gallery-container').append(html);
+				
+				vars.imagekeys.push(imagekey);							// keep imakekey reference for image selection
 			}
 
 			$('#gallery-container').show();
@@ -672,8 +691,6 @@ $(function main() {
 	// query a thumbnail and add the received blob or base64 thumbnail to the gallery
 	function renderThumnail (data, imagekey) {
 	
-		vars.imagekeys.push(imagekey);									// keep imakekey reference
-
 		let imageUrl = getImageURL(data);
 		$('#tb_'+imagekey).prop('src', imageUrl);						// update img src
 
@@ -700,25 +717,33 @@ $(function main() {
 		thumbnail.on('click', [imagekey], function(event) {				// hide checkbox if mouse leave image
 			event.preventDefault();
 			let imagekey = event.data[0];
-			if (getSelectionMode(event))
-				updateImagesSelection ('image', imagekey);				// selection mode active. add/remove to selection list
+			if (getSelectionMode(event)) {
+				updateImagesSelection ('image', imagekey, event);		// selection mode active. add/remove to selection list
+				vars.last_imagekey = imagekey;
+			}
 			else {
 				let albumid = imagekey.split('_')[1];					// imagekey: tn_thumbid_albumid_date
 				getDataAndThen ('/images/'+albumid, {}, renderImage);	// get and display real image
 			}
 		});
 
-		checkbox.on('change', [imagekey], function(event) {		// checkbox clicked. add/remove to selection list
+		checkbox.on('click', [imagekey], function(event) {		// checkbox clicked. add/remove to selection list
 			let imagekey = event.data[0];
-			updateImagesSelection ('checkbox', event.data[0]);
+			updateImagesSelection ('checkbox', event.data[0], event);
+			vars.last_imagekey = imagekey;
 		});
 	}
 
 	
 	// selection logic. add/remove image keys to vars.selectedkeys
 	// update checkboxes state
-	function updateImagesSelection (source, imagekey) {
-
+	function updateImagesSelection (source, imagekey, event) {
+		if (source=='clear') {		// both selection button unchecked
+			$('.thumbnail-checkbox').prop('checked', false);	// unselect all images
+			vars.selectedkeys = [];								// empty checked list
+			enableField ($('#download'), false);				// disable download button
+			return;
+		}
 		let mode = getSelectionMode(event);
 		let thisCheckbox = $('#cb_'+imagekey);
 		let thisSelIndex = vars.selectedkeys.indexOf(imagekey);
@@ -731,7 +756,7 @@ $(function main() {
 		else if (op=='range' && vars.selectedkeys.length==0)
 			op = "single";
 
-		console.log ('mode='+mode+', op='+op+', imagekey='+imagekey);
+	//	console.log ('mode='+mode+', op='+op+', imagekey='+imagekey);
 		
 		if (op=='remove' && thisSelIndex>=0) {						// remove one
 			vars.selectedkeys.splice(thisSelIndex, 1);
@@ -759,18 +784,16 @@ $(function main() {
 		}
 
 		vars.selectedkeys.sort();
-		enableField ($('#download'), vars.selectedkeys.length>0);	// enable/disble download
-		vars.last_imagekey = imagekey;
-		console.log (vars.last_imagekey, vars.selectedkeys);
+		enableField ($('#download'), vars.selectedkeys.length>0);	// enable/disable download
 	}
 
 	// allow selection with mouse or header buttons
 	function getSelectionMode (event) {
 	//	console.log ('ctrlKey, altKey, shiftKey:', event.ctrlKey, event.altKey, event.shiftKey);
 	//	console.log ('select some, range:', $('#select-single').is(':checked'), $('#select-range').is(':checked'));
-		if (event.ctrlKey || $('#select-single').is(':checked'))
+		if ((event && event.ctrlKey) || $('#select-single').is(':checked'))
 			return 'single';
-		if (event.shiftKey || $('#select-range').is(':checked'))
+		if ((event && event.shiftKey) || $('#select-range').is(':checked'))
 			return 'range';
 		return null
 	}

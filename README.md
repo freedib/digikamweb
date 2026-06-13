@@ -17,6 +17,10 @@ In summary:
 - No docker container requires
 - No thumnails conversion prior tu use
 
+# Screenshots
+
+[Selection by album](./screenshots/Selection-by-album.png)
+
 # Install
 
 First you must build the addon [pgf2jpg](./addons/pgf2jpg/README.md)
